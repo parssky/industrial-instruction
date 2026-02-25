@@ -1,0 +1,10 @@
+datasets
+transformers
+trl
+unsloth
+openai
+vllm
+faiss-cpu
+scikit-learn
+tqdm
+jupyter
