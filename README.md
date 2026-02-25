@@ -4,6 +4,13 @@ Industrial-Instruction is an end-to-end framework for constructing industrial in
 
 Using Panasonic technical documentation as a case study, Industrial-Instruction supports research on robust retrieval-augmented generation (RAG) in high-noise, multi-document industrial settings.
 
+## Project Links
+
+- Hugging Face Dataset: https://huggingface.co/datasets/Parssky/industrial-instruction-dataset
+- Hugging Face Model: https://huggingface.co/Parssky/industrial-instruction-qwen4b
+- Hugging Face FAISS Index: https://huggingface.co/datasets/Parssky/industrial-instruction-faiss
+
+
 ## Repository Scope
 
 This repository contains:
