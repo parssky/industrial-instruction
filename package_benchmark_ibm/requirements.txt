@@ -1,0 +1,6 @@
+vllm
+transformers
+openai
+scikit-learn
+datasets
+tqdm

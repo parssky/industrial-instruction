@@ -1,0 +1,12 @@
+# Large artifacts
+datasets/
+models/
+vector_store/
+
+# Notebook/cache/logs
+.ipynb_checkpoints/
+__pycache__/
+*.pyc
+*.log
+runs/
+gallery/
