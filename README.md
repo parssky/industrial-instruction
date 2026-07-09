@@ -7,7 +7,7 @@ Using Panasonic technical documentation as a case study, Industrial-Instruction 
 ## Project Links
 
 - Hugging Face Dataset: https://huggingface.co/datasets/Parssky/industrial-instruction-dataset
-- Hugging Face Model: https://huggingface.co/Parssky/industrial-instruction-qwen4b
+- Hugging Face Model: https://huggingface.co/Parssky/industrial-instruction-qwen4b, https://huggingface.co/Parssky/industrial-instruction-qwen4b-claude
 - Hugging Face FAISS Index: https://huggingface.co/datasets/Parssky/industrial-instruction-faiss
 
 
@@ -24,7 +24,7 @@ This repository intentionally excludes heavy artifacts (datasets, model weights,
 ## Planned Hugging Face Repositories
 
 - Dataset: `industrial-instruction-dataset`
-- Model: `industrial-instruction-qwen4b`
+- Model: `industrial-instruction-qwen4b` and `industrial-instruction-qwen4b-claude`
 - Vector index: `industrial-instruction-faiss`
 
 ## Reproducibility Outline
