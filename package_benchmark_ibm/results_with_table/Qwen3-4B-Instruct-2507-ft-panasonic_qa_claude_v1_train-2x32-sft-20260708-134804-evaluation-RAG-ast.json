@@ -1,0 +1,8 @@
+{
+    "acc_original": 0.49643794525684287,
+    "acc_perturb": 0.0,
+    "consistency": 0.0,
+    "f1_macro": 0.33491271820448876,
+    "f1_micro": 0.5035620547431571,
+    "n_samples": 2667
+}
