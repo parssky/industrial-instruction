@@ -37,4 +37,15 @@ This repository intentionally excludes heavy artifacts (datasets, model weights,
 
 ## Citation
 
-If you use this repository, please cite the Industrial-Instruction paper (citation block to be added after publication).
+If you use this repository, please cite the Industrial-Instruction dataset.
+
+```latex
+@misc{parsa_bakhtiari_2026,
+    author       = { Parsa Bakhtiari and Hassan Bashiri and Alireza Khalilipour and Masoud Nasiripour },
+    title        = { industrial-instruction-dataset (Revision 7eadea0) },
+    year         = 2026,
+    url          = { https://huggingface.co/datasets/Parssky/industrial-instruction-dataset },
+    doi          = { 10.57967/hf/10098 },
+    publisher    = { Hugging Face }
+}
+```
