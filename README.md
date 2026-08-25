@@ -4,7 +4,7 @@ Industrial-Instruction is an end-to-end framework for constructing industrial in
 
 Using Panasonic technical documentation as a case study, Industrial-Instruction supports research on robust retrieval-augmented generation (RAG) in high-noise, multi-document industrial settings.
 
-📄 **Paper:** [Industrial-Instruction: An End-to-End Framework for Building Instruction-Tuning and Benchmark Datasets from Industrial Technical Reports](https://arxiv.org/abs/XXXX.XXXXX) (arXiv:XXXX.XXXXX)
+📄 **Paper:** [Industrial-Instruction: An End-to-End Framework for Building Instruction-Tuning and Benchmark Datasets from Industrial Technical Reports](https://arxiv.org/abs/2608.22817) (arXiv:2608.22817)
 
 ## Project Links
 
