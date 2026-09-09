@@ -1,0 +1,63 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "industrial-instruction"
+version = "0.1.0"
+description = "End-to-end toolkit for building instruction-tuning and benchmark datasets from industrial technical PDF reports."
+readme = "PACKAGE.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [
+    { name = "Parsa Bakhtiari" },
+]
+keywords = ["llm", "rag", "dataset-generation", "instruction-tuning", "benchmark"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [
+    "pydantic>=2.0",
+    "PyYAML>=6.0",
+    "numpy>=1.23",
+    "tqdm>=4.65",
+    "openai>=1.30",
+]
+
+[project.optional-dependencies]
+pdf = ["PyMuPDF>=1.24"]
+pdfplumber = ["pdfplumber>=0.11"]
+docling = ["docling>=2.0"]
+marker = ["marker-pdf>=0.2"]
+local-embed = ["sentence-transformers>=3.0", "torch>=2.0"]
+faiss = ["faiss-cpu>=1.7"]
+hub = ["datasets>=2.18", "huggingface-hub>=0.23"]
+all = [
+    "PyMuPDF>=1.24",
+    "pdfplumber>=0.11",
+    "sentence-transformers>=3.0",
+    "faiss-cpu>=1.7",
+    "datasets>=2.18",
+]
+dev = ["pytest>=7.4", "ruff>=0.5"]
+
+[project.scripts]
+ii = "industrial_instruction.cli:main"
+industrial-instruction = "industrial_instruction.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/parssky/industrial-instruction"
+Paper = "https://arxiv.org/abs/2608.22817"
+Dataset = "https://huggingface.co/datasets/Parssky/industrial-instruction-dataset"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+industrial_instruction = ["configs/*.yaml", "generate/prompts/*.txt"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
