@@ -108,6 +108,7 @@ def assemble_dataset(
 
     rng = random.Random(cfg.split_seed)
     ratios = dict(cfg.splits) or {"train": 1.0}
+    formats = cfg.resolved_formats()
 
     assignments: Dict[str, List[QASample]] = defaultdict(list)
     if cfg.stratify_by_relation:
@@ -126,7 +127,7 @@ def assemble_dataset(
     for split, rows in assignments.items():
         rng.shuffle(rows)
         counts: Dict[str, int] = {}
-        for fmt in cfg.formats:
+        for fmt in formats:
             if fmt == "jsonl":
                 path = out / f"{split}.jsonl"
                 if path.exists():
@@ -160,7 +161,7 @@ def assemble_dataset(
         "total": len(pool),
         "splits": {k: len(v) for k, v in assignments.items()},
         "per_relation": per_relation,
-        "formats": list(cfg.formats),
+        "formats": formats,
         "output_dir": str(out),
     }
     write_json(out / "dataset_stats.json", stats)

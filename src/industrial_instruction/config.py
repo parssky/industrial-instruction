@@ -10,6 +10,8 @@ environment variable that holds the key.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -18,6 +20,17 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
 from industrial_instruction.schemas import DEFAULT_RELATIONS, RelationSpec
+
+STAGE_KEYS = (
+    "extract",
+    "chunk",
+    "embed",
+    "store",
+    "seeds",
+    "generate",
+    "filter",
+    "assemble",
+)
 
 
 class _Base(BaseModel):
@@ -188,11 +201,18 @@ class AssembleConfig(_Base):
     )
     split_seed: int = 42
     stratify_by_relation: bool = True
-    formats: List[str] = Field(default_factory=lambda: ["jsonl"])  # jsonl | hf
+    formats: List[str] = Field(default_factory=lambda: ["jsonl"])  # jsonl | chat
     chat_format: bool = True  # also emit messages-style SFT rows
     include_documents: bool = True
     push_to_hub: Optional[str] = None  # e.g. "you/your-dataset"
     private: bool = True
+
+    def resolved_formats(self) -> List[str]:
+        """``formats`` plus the implicit 'chat' output when enabled."""
+        formats = list(self.formats)
+        if self.chat_format and "chat" not in formats:
+            formats.append("chat")
+        return formats
 
 
 class Config(_Base):
@@ -234,7 +254,65 @@ class Config(_Base):
         )
         return p
 
+    # ------------------------------------------------------------ overrides
+
+    def with_override(self, key: str, value: Any) -> "Config":
+        """Return a copy with one dotted ``key`` set to ``value``.
+
+        Backs the CLI's ``--set generate.model=gpt-4.1``. Strings are parsed
+        as YAML so ``true``, ``8``, ``0.2``, ``null`` and ``[a, b]`` arrive as
+        the right Python types, and validation still runs on the result.
+        """
+        parts = [p for p in key.split(".") if p]
+        if not parts:
+            raise ValueError("override key must not be empty")
+
+        if isinstance(value, str):
+            try:
+                parsed = yaml.safe_load(value)
+            except yaml.YAMLError:
+                parsed = value
+            if parsed is None and value.strip() not in ("null", "~", ""):
+                parsed = value
+        else:
+            parsed = value
+
+        data = self.model_dump(mode="json")
+        cursor: Any = data
+        for part in parts[:-1]:
+            if not isinstance(cursor, dict) or part not in cursor:
+                raise ValueError(
+                    f"Unknown config key {key!r}: no section {part!r}. "
+                    "Run 'ii info' to see the resolved config."
+                )
+            cursor = cursor[part]
+        leaf = parts[-1]
+        if not isinstance(cursor, dict) or leaf not in cursor:
+            raise ValueError(
+                f"Unknown config key {key!r}. Run 'ii info' to see valid keys."
+            )
+        cursor[leaf] = parsed
+        return type(self).model_validate(data)
+
+    def with_overrides(self, overrides: Dict[str, Any]) -> "Config":
+        config = self
+        for key, value in (overrides or {}).items():
+            config = config.with_override(key, value)
+        return config
+
+    # ---------------------------------------------------------- fingerprint
+
     def fingerprint(self, *stages: str) -> Dict[str, Any]:
-        """Config subset used for stage cache keys / the run manifest."""
+        """Config subset used for stage cache keys / the run manifest.
+
+        With no arguments this covers every stage, so the manifest records the
+        full settings that produced a dataset. ``hash`` is a short digest for
+        quick equality checks between runs.
+        """
         dumped = self.model_dump(mode="json")
-        return {s: dumped.get(s) for s in stages}
+        keys = stages or STAGE_KEYS
+        subset = {s: dumped.get(s) for s in keys}
+        digest = hashlib.sha256(
+            json.dumps(subset, sort_keys=True, default=str).encode("utf-8")
+        ).hexdigest()[:12]
+        return {"hash": digest, "project": self.project, **subset}
