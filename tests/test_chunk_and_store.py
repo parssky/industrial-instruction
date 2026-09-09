@@ -51,9 +51,7 @@ def test_hash_embedder_is_deterministic_and_normalized():
 
 
 def test_faiss_roundtrip_and_retrieval(tmp_path):
-    faiss_store = pytest.importorskip(
-        "faiss", reason="faiss-cpu not installed"
-    ) and None
+    pytest.importorskip("faiss", reason="faiss-cpu not installed")
     from industrial_instruction.store.faiss_store import FaissStore
 
     embed_config = EmbedConfig(backend="hash", dimension=128)
@@ -84,11 +82,6 @@ def test_store_rejects_dimension_mismatch(tmp_path):
     from industrial_instruction.store.faiss_store import FaissStore
 
     chunks = chunk_documents([make_document()], Config().chunk)
-    FaissStore(
-        embedder=get_embedder(EmbedConfig(backend="hash", dimension=128)),
-        directory=tmp_path / "index",
-    ).add_chunks(chunks, show_progress=False)
-
     store = FaissStore(
         embedder=get_embedder(EmbedConfig(backend="hash", dimension=128)),
         directory=tmp_path / "index",
