@@ -1,0 +1,15 @@
+<Documents>
+{docs}
+</Documents>
+You are helping build an evaluation and instruction-tuning dataset for a technical domain.
+Read the <Documents> above and write ONE realistic question that a practising engineer, technician or operator
+would genuinely ask about this subject matter.
+
+Requirements:
+1. The question must be a standalone question, understandable without seeing the documents.
+2. Strictly avoid meta-references such as "Based on the provided context," "According to the documents," or "In the text."
+3. Prefer questions about procedures, specifications, tolerances, fault diagnosis, maintenance intervals, safety limits
+   and component selection, which is where domain knowledge actually matters.
+4. Do not answer the question.
+
+Return valid JSON only, in the format {"q*": "..."}.

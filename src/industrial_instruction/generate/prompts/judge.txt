@@ -1,0 +1,27 @@
+You are grading one candidate sample for an industrial-domain instruction dataset.
+
+<Documents>
+{docs}
+</Documents>
+
+<Question>
+{question}
+</Question>
+
+<Answer>
+{answer}
+</Answer>
+
+The sample was generated for the retrieval relation described as:
+<Relation>
+{relation_description}
+</Relation>
+
+Grade the sample from 1 to 5 on each criterion:
+- "faithful": the answer is consistent with the documents and contains no invented specifications.
+- "standalone": the question is self-contained and free of meta-references to source material.
+- "relation_match": the document/answer dependency matches the stated relation.
+- "usefulness": a domain practitioner would find this question realistic and worth answering.
+
+Return valid JSON only, in the format
+{"faithful": 0, "standalone": 0, "relation_match": 0, "usefulness": 0, "reason": "..."}.
