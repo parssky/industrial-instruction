@@ -1,14 +1,15 @@
 """Deterministic hashing embedder.
 
-Not for research use: it exists so tests and smoke runs of the full pipeline
-work offline with no model download and no GPU.
+Not for production retrieval quality - it exists so the whole pipeline can be
+exercised in unit tests and offline smoke runs with no model download, no GPU
+and no network. ``embed.dimension`` controls the width.
 """
 
 from __future__ import annotations
 
 import hashlib
 import re
-from typing import Optional, Sequence
+from typing import Sequence
 
 import numpy as np
 
@@ -19,22 +20,22 @@ _TOKEN = re.compile(r"[a-z0-9]+")
 
 
 class HashEmbedder(Embedder):
-    name = "hash"
-
-    def __init__(self, config: Optional[EmbedConfig] = None) -> None:
+    def __init__(self, config: EmbedConfig) -> None:
         super().__init__(config)
-        self._dim = int(self.config.dimension or 256)
+        self._dimension = int(config.dimension or 256)
 
     @property
     def dimension(self) -> int:
-        return self._dim
+        return self._dimension
 
-    def embed(self, texts: Sequence[str]) -> np.ndarray:
-        out = np.zeros((len(texts), self._dim), dtype=np.float32)
-        for i, text in enumerate(texts):
-            for token in _TOKEN.findall((text or "").lower()):
-                digest = hashlib.md5(token.encode("utf-8")).digest()
-                idx = int.from_bytes(digest[:4], "little") % self._dim
+    def _encode(self, texts: Sequence[str]) -> np.ndarray:
+        out = np.zeros((len(texts), self._dimension), dtype="float32")
+        for row, text in enumerate(texts):
+            for token in _TOKEN.findall(text.lower()):
+                digest = hashlib.blake2b(
+                    token.encode("utf-8"), digest_size=8
+                ).digest()
+                index = int.from_bytes(digest[:4], "little") % self._dimension
                 sign = 1.0 if digest[4] % 2 == 0 else -1.0
-                out[i, idx] += sign
+                out[row, index] += sign
         return out

@@ -1,4 +1,4 @@
-"""Embedder registry keyed by ``embed.backend``."""
+"""Embedder registry."""
 
 from __future__ import annotations
 
@@ -11,28 +11,37 @@ _REGISTRY: Dict[str, Callable[[EmbedConfig], Embedder]] = {}
 
 
 def register_embedder(name: str, factory: Callable[[EmbedConfig], Embedder]) -> None:
-    """Plug in a custom embedder, e.g. an in-house domain model."""
     _REGISTRY[name.lower()] = factory
 
 
-def get_embedder(config: EmbedConfig) -> Embedder:
-    key = (config.backend or "sentence_transformers").lower()
-    if key in _REGISTRY:
-        return _REGISTRY[key](config)
-    if key in ("sentence_transformers", "st", "local"):
+def _builtin(name: str) -> Callable[[EmbedConfig], Embedder]:
+    if name in ("sentence_transformers", "st", "local", "default"):
         from industrial_instruction.embed.sentence_transformers_embedder import (
             SentenceTransformersEmbedder,
         )
 
-        return SentenceTransformersEmbedder(config)
-    if key == "openai":
+        return SentenceTransformersEmbedder
+    if name in ("openai", "api", "compatible"):
         from industrial_instruction.embed.openai_embedder import OpenAIEmbedder
 
-        return OpenAIEmbedder(config)
-    if key in ("hash", "test"):
+        return OpenAIEmbedder
+    if name in ("hash", "test", "offline"):
         from industrial_instruction.embed.hash_embedder import HashEmbedder
 
-        return HashEmbedder(config)
-    raise ValueError(
-        f"Unknown embed backend {key!r}. Built-ins: sentence_transformers, openai, hash."
-    )
+        return HashEmbedder
+    raise KeyError(name)
+
+
+def get_embedder(config: EmbedConfig) -> Embedder:
+    """Instantiate the embedder named by ``config.backend``."""
+    name = (config.backend or "sentence_transformers").lower()
+    if name in _REGISTRY:
+        return _REGISTRY[name](config)
+    try:
+        return _builtin(name)(config)
+    except KeyError:
+        raise ValueError(
+            f"Unknown embed backend {config.backend!r}. Built-ins: "
+            "'sentence_transformers', 'openai', 'hash'. "
+            f"Registered: {sorted(_REGISTRY)}"
+        ) from None

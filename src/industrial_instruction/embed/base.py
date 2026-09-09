@@ -1,76 +1,68 @@
-"""Embedder protocol.
+"""Embedder interface.
 
-Document and query embeddings are separate methods because instruction-tuned
-embedders (EmbeddingGemma, E5, BGE, Jina) expect asymmetric prefixes. The
-original notebook encoded both sides identically, which silently costs recall.
+Documents and queries are encoded through separate methods because modern
+retrieval models (including EmbeddingGemma, the default) expect different
+instruction prefixes for each side. The original code used one ``_encode``
+for both, which silently degrades recall.
 """
 
 from __future__ import annotations
 
-import abc
-from typing import List, Optional, Sequence
+from abc import ABC, abstractmethod
+from typing import List, Sequence
 
 import numpy as np
 
 from industrial_instruction.config import EmbedConfig
 
 
-class Embedder(abc.ABC):
-    name: str = "base"
+class Embedder(ABC):
+    """Base class for all embedding backends."""
 
-    def __init__(self, config: Optional[EmbedConfig] = None) -> None:
-        self.config = config or EmbedConfig()
+    def __init__(self, config: EmbedConfig) -> None:
+        self.config = config
 
-    @abc.abstractmethod
-    def embed(self, texts: Sequence[str]) -> np.ndarray:
-        """Embed raw texts. Returns ``(n, dim)`` float32."""
+    # ------------------------------------------------------------------
 
     @property
-    @abc.abstractmethod
+    @abstractmethod
     def dimension(self) -> int:
-        """Embedding dimensionality."""
+        """Vector width; required to build the FAISS index."""
 
-    # -- public API --------------------------------------------------------
+    @abstractmethod
+    def _encode(self, texts: Sequence[str]) -> np.ndarray:
+        """Encode a batch of raw strings into a ``(n, dim)`` float32 array."""
 
-    def embed_documents(self, texts: Sequence[str]) -> np.ndarray:
+    # ------------------------------------------------------------------
+
+    @property
+    def name(self) -> str:
+        return f"{type(self).__name__}({self.config.model})"
+
+    def encode_documents(self, texts: Sequence[str]) -> np.ndarray:
         prefix = self.config.document_prefix or ""
-        return self._finish(self.embed([prefix + t for t in texts]))
+        return self._finalize(self._encode([prefix + t for t in texts]))
 
-    def embed_query(self, text: str) -> np.ndarray:
+    def encode_queries(self, texts: Sequence[str]) -> np.ndarray:
         prefix = self.config.query_prefix or ""
-        return self._finish(self.embed([prefix + text]))
+        return self._finalize(self._encode([prefix + t for t in texts]))
 
-    # -- helpers -----------------------------------------------------------
+    def encode_query(self, text: str) -> np.ndarray:
+        return self.encode_queries([text])[0]
 
-    def _finish(self, vectors: np.ndarray) -> np.ndarray:
-        arr = np.asarray(vectors, dtype=np.float32)
-        if arr.ndim == 1:
-            arr = arr.reshape(1, -1)
+    # ------------------------------------------------------------------
+
+    def _finalize(self, vectors: np.ndarray) -> np.ndarray:
+        """Cast to float32 and L2-normalize so inner product == cosine."""
+        array = np.asarray(vectors, dtype="float32")
+        if array.ndim == 1:
+            array = array.reshape(1, -1)
         if self.config.normalize:
-            arr = normalize(arr)
-        return arr
+            norms = np.linalg.norm(array, axis=1, keepdims=True)
+            norms[norms == 0] = 1.0
+            array = array / norms
+        return array
 
-    def fingerprint(self) -> dict:
-        """Recorded in the store metadata to catch index/model mismatches."""
-        return {
-            "backend": self.name,
-            "model": self.config.model,
-            "dimension": self.dimension,
-            "normalize": self.config.normalize,
-            "query_prefix": self.config.query_prefix,
-            "document_prefix": self.config.document_prefix,
-        }
-
-
-def normalize(vectors: np.ndarray) -> np.ndarray:
-    """L2-normalize rows so inner product equals cosine similarity."""
-    arr = np.asarray(vectors, dtype=np.float32)
-    if arr.ndim == 1:
-        arr = arr.reshape(1, -1)
-    norms = np.linalg.norm(arr, axis=1, keepdims=True)
-    return (arr / np.maximum(norms, 1e-9)).astype("float32")
-
-
-def batched(items: Sequence[str], size: int) -> List[Sequence[str]]:
-    size = max(int(size), 1)
-    return [items[i : i + size] for i in range(0, len(items), size)]
+    def batches(self, texts: Sequence[str]) -> List[Sequence[str]]:
+        size = max(int(self.config.batch_size or 32), 1)
+        return [texts[i : i + size] for i in range(0, len(texts), size)]
