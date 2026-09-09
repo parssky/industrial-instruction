@@ -1,0 +1,104 @@
+# industrial-instruction starter config
+#
+# Written by `ii init`. Every key below is optional - anything you delete
+# falls back to the packaged default. Secrets never live here: set the
+# environment variable named by `api_key_env` instead.
+#
+# Quick start:
+#   1. put your PDFs in data/pdfs/
+#   2. export OPENAI_API_KEY=...
+#   3. ii run
+
+project: industrial-instruction
+
+paths:
+  # root is filled in automatically with this file's directory
+  pdfs: data/pdfs
+  documents: artifacts/documents
+  chunks: artifacts/chunks.jsonl
+  index: artifacts/faiss
+  generated: artifacts/generated
+  filtered: artifacts/filtered
+  dataset: artifacts/dataset
+  manifest: artifacts/run_manifest.json
+
+extract:
+  backend: pymupdf # pymupdf | pdfplumber | markdown
+  extract_tables: true
+  table_backend: auto
+  drop_images: true # images are dropped; tables become markdown
+  page_markers: true
+  strip_headers_footers: true
+  dehyphenate: true
+  min_chars_per_doc: 200 # scanned PDFs with no text layer are skipped
+  recursive: true
+
+chunk:
+  strategy: heading # heading | fixed
+  max_chars: 2000
+  min_chars: 120
+  overlap: 200
+  keep_tables_whole: true
+
+embed:
+  backend: sentence_transformers # sentence_transformers | openai | hash
+  model: google/embeddinggemma-300m # Hub id or a local directory
+  batch_size: 32
+  normalize: true
+  # EmbeddingGemma-style asymmetric prefixes; clear them for other models
+  query_prefix: "task: search result | query: "
+  document_prefix: "title: none | text: "
+
+store:
+  index_type: flat_ip # flat_ip (cosine) | flat_l2 | hnsw
+
+seeds:
+  # Where the "simulated instruction" style examples come from.
+  #   huggingface -> any HF dataset (the paper used FailureSensorIQ)
+  #   jsonl       -> your own file, set `path`
+  #   self        -> bootstrap seeds from your own PDFs, no external data
+  source: huggingface
+  dataset: ibm-research/FailureSensorIQ
+  splits: [org, pert]
+  text_field: prompt
+  # path: data/my_seeds.jsonl
+  shuffle: true
+  seed: 42
+  limit: null # cap seeds; try 20 for a first smoke run
+
+generate:
+  # Leave base_url empty for the OpenAI API, or point it at a local server
+  # such as http://localhost:8000/v1 for vLLM.
+  base_url: null
+  api_key_env: OPENAI_API_KEY
+  model: gpt-4.1-mini
+  temperature: 0.1
+  max_workers: 8
+  max_retries: 3
+  retrieval_k: 3
+  require_options: false # true = multiple-choice A-E for every relation
+  n_options: 5
+  # prompt_dir: prompts   # drop your own <name>.txt files here to override
+  # relations: defaults to r0-r4 from the paper; disable one with enabled: false
+
+filter:
+  min_question_chars: 20
+  max_question_chars: 2000
+  require_answer: true
+  forbid_meta_references: true # drops "according to the documents..."
+  enforce_option_count: true
+  dedupe: true
+  judge_enabled: false # true adds one LLM call per surviving sample
+  judge_min_score: 3.0
+
+assemble:
+  splits:
+    train: 0.9
+    test: 0.1
+  split_seed: 42
+  stratify_by_relation: true
+  formats: [jsonl]
+  chat_format: true # also write <split>.chat.jsonl for SFT
+  include_documents: true
+  push_to_hub: null # e.g. your-name/your-dataset
+  private: true
