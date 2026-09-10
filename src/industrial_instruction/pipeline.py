@@ -9,6 +9,7 @@ always be traced back to the settings that produced it.
 from __future__ import annotations
 
 import time
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -28,6 +29,13 @@ logger = get_logger(__name__)
 
 STAGE_ORDER = ("extract", "index", "generate", "filter", "assemble")
 
+#: How many past runs to keep in run_manifest.json.
+MAX_RUN_HISTORY = 20
+
+
+def _utcnow() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
 
 class Pipeline:
     """Runs the dataset-construction stages against one :class:`Config`."""
@@ -35,6 +43,8 @@ class Pipeline:
     def __init__(self, config: Config, configure_logging: bool = True) -> None:
         self.config = config
         self.reports: List[StageReport] = []
+        self.run_id = uuid.uuid4().hex[:12]
+        self.started_at = _utcnow()
         if configure_logging:
             _configure_logging()
 
@@ -129,18 +139,48 @@ class Pipeline:
         return {r.stage: r.model_dump(mode="json") for r in self.reports}
 
     def write_manifest(self) -> Path:
+        """Write the manifest, upserting this run into the rolling history.
+
+        Called after every stage, so the manifest stays truthful even if a
+        later stage crashes.
+        """
         path = self.config.paths.resolve("manifest")
         ensure_dir(path.parent)
-        existing = read_json(path, default={}) if path.exists() else {}
-        runs = existing.get("runs", []) if isinstance(existing, dict) else []
+
+        existing = read_json(path, default={})
+        if not isinstance(existing, dict):
+            existing = {}
+        history = existing.get("runs")
+        if not isinstance(history, list):
+            history = []
+
+        now = _utcnow()
+        summary = self.summary()
+        entry = {
+            "run_id": self.run_id,
+            "started_at": self.started_at,
+            "updated_at": now,
+            "config_fingerprint": self.config.fingerprint(),
+            "stages": summary,
+        }
+        # Replace this run's entry rather than appending one per stage.
+        history = [
+            r
+            for r in history
+            if not (isinstance(r, dict) and r.get("run_id") == self.run_id)
+        ]
+        history.append(entry)
+        history = history[-MAX_RUN_HISTORY:]
+
         write_json(
             path,
             {
-                "updated_at": datetime.now(timezone.utc).isoformat(),
+                "updated_at": now,
+                "run_id": self.run_id,
                 "config_fingerprint": self.config.fingerprint(),
                 "config": self.config.model_dump(mode="json"),
-                "stages": self.summary(),
-                "runs": runs,
+                "stages": summary,
+                "runs": history,
             },
         )
         return path

@@ -11,6 +11,13 @@ from typing import Any, Dict, Iterable, Iterator, List, Union
 PathLike = Union[str, Path]
 
 
+class _Missing:
+    """Sentinel so that ``default=None`` is distinguishable from no default."""
+
+
+_MISSING = _Missing()
+
+
 def ensure_dir(path: PathLike) -> Path:
     """Create ``path`` (as a directory) if needed and return it."""
     p = Path(path)
@@ -63,9 +70,27 @@ def append_jsonl(path: PathLike, rows: Iterable[Any]) -> int:
     return n
 
 
-def read_json(path: PathLike) -> Any:
-    with Path(path).open("r", encoding="utf-8") as fh:
-        return json.load(fh)
+def read_json(path: PathLike, default: Any = _MISSING) -> Any:
+    """Read a JSON file.
+
+    If ``default`` is given it is returned when the file is missing, empty or
+    contains invalid JSON. A half-written manifest from an interrupted run
+    should not be able to break the next run, so a corrupt file is treated the
+    same as a missing one. Without ``default`` the underlying error is raised.
+    """
+    p = Path(path)
+    has_default = not isinstance(default, _Missing)
+    if not p.exists():
+        if has_default:
+            return default
+        raise FileNotFoundError(f"No such file: {p}")
+    try:
+        with p.open("r", encoding="utf-8") as fh:
+            return json.load(fh)
+    except (json.JSONDecodeError, UnicodeDecodeError, OSError):
+        if has_default:
+            return default
+        raise
 
 
 def write_json(path: PathLike, obj: Any, indent: int = 2) -> None:

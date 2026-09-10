@@ -27,18 +27,31 @@ logger = get_logger(__name__)
 class PyMuPDFExtractor(Extractor):
     name = "pymupdf"
 
-    def _import_fitz(self):
+    def _import_pymupdf(self):
+        """Import PyMuPDF.
+
+        The package was renamed from ``fitz`` to ``pymupdf`` in 1.24.3; the old
+        name still works but prints a deprecation warning on every import, so
+        prefer the new one and keep ``fitz`` as a fallback for older installs.
+        """
         try:
-            import fitz  # PyMuPDF
+            import pymupdf
+
+            return pymupdf
+        except ImportError:
+            pass
+        try:
+            import fitz  # PyMuPDF < 1.24.3
+
+            return fitz
         except ImportError as exc:  # pragma: no cover - env dependent
             raise ExtractionError(
                 "PyMuPDF is required for the 'pymupdf' backend. "
                 "Install it with: pip install 'industrial-instruction[pdf]'"
             ) from exc
-        return fitz
 
     def extract(self, path: str | Path) -> Document:
-        fitz = self._import_fitz()
+        pymupdf = self._import_pymupdf()
         p = Path(path)
         if not p.exists():
             raise ExtractionError(f"File not found: {p}")
@@ -48,7 +61,7 @@ class PyMuPDFExtractor(Extractor):
         n_tables = 0
         n_images = 0
 
-        with fitz.open(p) as doc:
+        with pymupdf.open(p) as doc:
             title = (doc.metadata or {}).get("title") or p.stem
             for page in doc:
                 # Images are never rendered or written out; we only count them
