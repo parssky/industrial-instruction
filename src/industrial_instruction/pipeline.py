@@ -27,7 +27,9 @@ from industrial_instruction.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
-STAGE_ORDER = ("extract", "index", "generate", "filter", "assemble")
+#: Stages in dependency order. ``chunk`` sits between extract and index:
+#: extract writes documents.jsonl, chunk writes chunks.jsonl, index embeds it.
+STAGE_ORDER = ("extract", "chunk", "index", "generate", "filter", "assemble")
 
 #: How many past runs to keep in run_manifest.json.
 MAX_RUN_HISTORY = 20
@@ -65,6 +67,11 @@ class Pipeline:
 
         return self._record(extract_documents(self.config, **kwargs))
 
+    def run_chunk(self, **kwargs) -> StageReport:
+        from industrial_instruction.chunk.chunker import chunk_documents
+
+        return self._record(chunk_documents(self.config, **kwargs))
+
     def run_index(self, **kwargs) -> StageReport:
         from industrial_instruction.store.runner import build_index
 
@@ -93,15 +100,19 @@ class Pipeline:
         stop_on_error: bool = True,
     ) -> List[StageReport]:
         """Run the requested stages in dependency order."""
-        selected = [s for s in (stages or STAGE_ORDER) if s in STAGE_ORDER]
-        unknown = set(stages or []) - set(STAGE_ORDER)
+        requested = [s.strip() for s in (stages or [])if s.strip()]
+        unknown = [s for s in requested if s not in STAGE_ORDER]
         if unknown:
             raise ValueError(
                 f"Unknown stage(s): {sorted(unknown)}. Valid: {list(STAGE_ORDER)}"
             )
+        # Always run in dependency order, whatever order they were listed in.
+        selected = [s for s in STAGE_ORDER if not requested or s in requested]
+
         started = time.time()
         runners = {
             "extract": self.run_extract,
+            "chunk": self.run_chunk,
             "index": self.run_index,
             "generate": self.run_generate,
             "filter": self.run_filter,

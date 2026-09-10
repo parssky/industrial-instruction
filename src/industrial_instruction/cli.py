@@ -1,7 +1,8 @@
 """``ii`` command line interface.
 
     ii init                 write a starter config
-    ii extract              PDFs -> markdown documents + chunks
+    ii extract              PDFs -> markdown documents
+    ii chunk                documents -> retrieval chunks
     ii index                chunks -> FAISS index
     ii generate             seeds + retrieval + LLM -> raw samples
     ii filter               rules (and optional judge) -> kept samples
@@ -84,6 +85,11 @@ def cmd_extract(args) -> int:
     return 0
 
 
+def cmd_chunk(args) -> int:
+    _print_report(_pipeline(args).run_chunk())
+    return 0
+
+
 def cmd_index(args) -> int:
     _print_report(_pipeline(args).run_index())
     return 0
@@ -132,6 +138,10 @@ def cmd_info(args) -> int:
             {
                 "fingerprint": config.fingerprint(),
                 "extract_backend": config.extract.backend,
+                "chunk": {
+                    "strategy": config.chunk.strategy,
+                    "max_chars": config.chunk.max_chars,
+                },
                 "embed": {
                     "backend": config.embed.backend,
                     "model": config.embed.model,
@@ -187,6 +197,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     for name, help_text, func in (
         ("extract", "extract text and tables from PDFs", cmd_extract),
+        ("chunk", "split documents into retrieval chunks", cmd_chunk),
         ("index", "embed chunks into a FAISS index", cmd_index),
         ("generate", "generate QA samples", cmd_generate),
         ("filter", "filter generated samples", cmd_filter),
@@ -199,7 +210,10 @@ def build_parser() -> argparse.ArgumentParser:
     run = add_common(subparsers.add_parser("run", help="run the full pipeline"))
     run.add_argument(
         "--stages",
-        help="comma-separated subset, e.g. --stages generate,filter,assemble",
+        help=(
+            "comma-separated subset, e.g. --stages generate,filter,assemble. "
+            "Stages always execute in dependency order."
+        ),
     )
     run.set_defaults(func=cmd_run)
     return parser
