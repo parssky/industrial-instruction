@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from industrial_instruction.config import Config
-from industrial_instruction.utils.logging import setup_logging
+from industrial_instruction.utils.logging import configure_logging
 
 DEFAULT_CONFIG_NAME = "industrial_instruction.yaml"
 _PACKAGED_DEFAULT = Path(__file__).parent / "configs" / "default.yaml"
@@ -51,6 +51,7 @@ def _load_config(args) -> Config:
 def _pipeline(args):
     from industrial_instruction.pipeline import Pipeline
 
+    # Logging is already configured in main(); don't reset the level here.
     return Pipeline(_load_config(args), configure_logging=False)
 
 
@@ -206,7 +207,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: Optional[List[str]] = None) -> int:
     args = build_parser().parse_args(argv)
-    setup_logging(level="DEBUG" if args.verbose else "INFO")
+    configure_logging(level="DEBUG" if args.verbose else "INFO")
     try:
         return int(args.func(args) or 0)
     except KeyboardInterrupt:

@@ -16,7 +16,13 @@ from typing import Dict, List, Optional
 from industrial_instruction.config import Config
 from industrial_instruction.schemas import StageReport
 from industrial_instruction.utils.io import ensure_dir, read_json, write_json
-from industrial_instruction.utils.logging import get_logger, setup_logging
+
+# Aliased on import: the ``Pipeline.__init__`` keyword argument is also named
+# ``configure_logging``, and would otherwise shadow this function.
+from industrial_instruction.utils.logging import (
+    configure_logging as _configure_logging,
+)
+from industrial_instruction.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -30,7 +36,7 @@ class Pipeline:
         self.config = config
         self.reports: List[StageReport] = []
         if configure_logging:
-            setup_logging()
+            _configure_logging()
 
     # ------------------------------------------------------------ factories
 
