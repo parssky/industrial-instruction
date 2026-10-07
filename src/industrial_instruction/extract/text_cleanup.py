@@ -10,7 +10,9 @@ _HYPHEN_BREAK = re.compile(r"(\w)-\n(\w)")
 _MULTI_BLANK = re.compile(r"\n{3,}")
 _TRAILING_WS = re.compile(r"[ \t]+\n")
 _BULLET = re.compile(r"^[\u2022\u00b7\u25cf\u25aa\u2023\u2043]\s*", re.MULTILINE)
-_PAGE_NUM_ONLY = re.compile(r"^\s*(page\s*)?\d{1,4}\s*(/\s*\d{1,4})?\s*$", re.I)
+PAGE_NUM_ONLY = re.compile(
+    r"^\s*(page\s*)?\d{1,4}\s*((/|of)\s*\d{1,4})?\s*$", re.IGNORECASE
+)
 
 
 def dehyphenate(text: str) -> str:
@@ -40,17 +42,23 @@ def find_repeated_lines(pages: List[str], min_ratio: float = 0.6) -> set:
     for page in pages:
         lines = [ln.strip() for ln in page.splitlines() if ln.strip()]
         for line in lines[:3] + lines[-3:]:
-            if 3 <= len(line) <= 120:
+            # Markdown headings come from large fonts; running headers don't.
+            if 3 <= len(line) <= 120 and not line.startswith("#"):
                 counter[line] += 1
     threshold = max(2, int(len(pages) * min_ratio))
     return {line for line, count in counter.items() if count >= threshold}
 
 
-def strip_lines(page: str, banned: set) -> str:
+def strip_lines(page: str, banned: set, edge: int = 3) -> str:
+    """Drop running headers/footers, and page numbers near the page edges."""
+    lines = page.splitlines()
+    filled = [i for i, ln in enumerate(lines) if ln.strip()]
+    edges = set(filled[:edge] + filled[-edge:])
     kept = [
         ln
-        for ln in page.splitlines()
-        if ln.strip() not in banned and not _PAGE_NUM_ONLY.match(ln)
+        for i, ln in enumerate(lines)
+        if (ln.lstrip().startswith("#") or ln.strip() not in banned)
+        and not (i in edges and PAGE_NUM_ONLY.match(ln))
     ]
     return "\n".join(kept)
 
@@ -62,7 +70,7 @@ def clean_pages(
     banned = find_repeated_lines(pages) if strip_headers_footers else set()
     out = []
     for page in pages:
-        text = strip_lines(page, banned) if banned else page
+        text = strip_lines(page, banned) if strip_headers_footers else page
         if do_dehyphenate:
             text = dehyphenate(text)
         out.append(normalize_whitespace(normalize_bullets(text)))

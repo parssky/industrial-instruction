@@ -8,8 +8,11 @@ extras for born-digital-but-messy or scanned corpora.
 
 from __future__ import annotations
 
+import re
+from collections import Counter
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from industrial_instruction.extract.base import Extractor, ExtractionError
 from industrial_instruction.extract.tables import (
@@ -17,7 +20,7 @@ from industrial_instruction.extract.tables import (
     rows_to_markdown,
     table_dimensions,
 )
-from industrial_instruction.extract.text_cleanup import clean_pages
+from industrial_instruction.extract.text_cleanup import PAGE_NUM_ONLY, clean_pages
 from industrial_instruction.schemas import Document
 from industrial_instruction.utils.logging import get_logger
 
@@ -56,13 +59,13 @@ class PyMuPDFExtractor(Extractor):
         if not p.exists():
             raise ExtractionError(f"File not found: {p}")
 
-        page_texts: List[str] = []
-        page_tables: List[List[str]] = []
+        page_lines: List[List[dict]] = []
+        page_tables: List[List[Tuple[tuple, str]]] = []
         n_tables = 0
         n_images = 0
 
         with pymupdf.open(p) as doc:
-            title = (doc.metadata or {}).get("title") or p.stem
+            title = (doc.metadata or {}).get("title") or None
             for page in doc:
                 # Images are never rendered or written out; we only count them
                 # so the manifest records what was dropped.
@@ -72,21 +75,36 @@ class PyMuPDFExtractor(Extractor):
                     except Exception:  # pragma: no cover - defensive
                         pass
 
-                text = page.get_text("text") or ""
-                tables_md: List[str] = []
+                tables: List[Tuple[tuple, str]] = []
                 if self.config.extract_tables and self.config.table_backend != "none":
-                    tables_md, found = self._page_tables(page)
-                    n_tables += found
-                page_texts.append(text)
-                page_tables.append(tables_md)
+                    tables = self._page_tables(page)
+                    n_tables += len(tables)
+                page_lines.append(_text_lines(page, [bbox for bbox, _ in tables]))
+                page_tables.append(tables)
             n_pages = doc.page_count
+
+        if self.config.strip_headers_footers:
+            page_lines = _drop_page_furniture(page_lines)
+        scale = (
+            _heading_scale([ln for lines in page_lines for ln in lines])
+            if self.config.backend_options.get("detect_headings", True)
+            else _HeadingScale()
+        )
+        page_texts = [
+            _render_page(lines, tables, scale)
+            for lines, tables in zip(page_lines, page_tables)
+        ]
+        if not title:
+            title = _first_heading(page_texts) or p.stem
 
         cleaned = clean_pages(
             page_texts,
-            strip_headers_footers=self.config.strip_headers_footers,
+            # Already done geometrically above; the text-only heuristic in
+            # clean_pages can't tell a running header from repeated body text.
+            strip_headers_footers=False,
             do_dehyphenate=self.config.dehyphenate,
         )
-        markdown = self._assemble(cleaned, page_tables)
+        markdown = self._assemble(cleaned)
 
         doc_obj = self._new_document(
             p,
@@ -100,15 +118,15 @@ class PyMuPDFExtractor(Extractor):
 
     # ------------------------------------------------------------------
 
-    def _page_tables(self, page) -> Tuple[List[str], int]:
-        """Extract tables from a page as markdown. Never raises."""
-        out: List[str] = []
+    def _page_tables(self, page) -> List[Tuple[tuple, str]]:
+        """Extract tables as ``(bbox, markdown)``. Never raises."""
+        out: List[Tuple[tuple, str]] = []
         try:
             finder = page.find_tables()
             tables = getattr(finder, "tables", []) or []
         except Exception as exc:  # pragma: no cover - older PyMuPDF
             logger.debug("table detection unavailable on page: %s", exc)
-            return out, 0
+            return out
 
         for table in tables:
             try:
@@ -120,10 +138,10 @@ class PyMuPDFExtractor(Extractor):
             md = rows_to_markdown(rows)
             if md:
                 n_rows, n_cols = table_dimensions(rows)
-                out.append(f"<!-- table {n_rows}x{n_cols} -->\n{md}")
-        return out, len(out)
+                out.append((tuple(table.bbox), f"<!-- table {n_rows}x{n_cols} -->\n{md}"))
+        return out
 
-    def _assemble(self, pages: List[str], page_tables: List[List[str]]) -> str:
+    def _assemble(self, pages: List[str]) -> str:
         parts: List[str] = []
         for i, text in enumerate(pages):
             block: List[str] = []
@@ -131,8 +149,200 @@ class PyMuPDFExtractor(Extractor):
                 block.append(f"<!-- page {i + 1} -->")
             if text.strip():
                 block.append(text.strip())
-            for md in page_tables[i] if i < len(page_tables) else []:
-                block.append(md)
             if len(block) > (1 if self.config.page_markers else 0):
                 parts.append("\n\n".join(block))
         return "\n\n".join(parts).strip()
+
+
+# ---------------------------------------------------------------- layout
+#
+# get_text("text") flattens a page: headings become ordinary lines and table
+# cells are emitted a second time next to the markdown table. Working from
+# get_text("dict") keeps font sizes (-> markdown headings) and bounding boxes
+# (-> skip text inside tables, and place each table where it sits on the page).
+
+_BOLD = 1 << 4
+_MAX_HEADING_CHARS = 120
+#: Fraction of the page height treated as header/footer margin.
+_MARGIN = 0.08
+_DIGITS = re.compile(r"\d+")
+
+
+def _inside(bbox: tuple, tables: List[tuple]) -> bool:
+    x = (bbox[0] + bbox[2]) / 2
+    y = (bbox[1] + bbox[3]) / 2
+    return any(t[0] <= x <= t[2] and t[1] <= y <= t[3] for t in tables)
+
+
+def _text_lines(page, table_bboxes: List[tuple]) -> List[dict]:
+    """Lines outside tables with their font size, boldness and position."""
+    out: List[dict] = []
+    try:
+        data = page.get_text("dict", sort=True)
+    except Exception:  # pragma: no cover - very old PyMuPDF
+        return [
+            {"text": ln, "size": 0.0, "bold": False, "y": 0.0, "block": 0,
+             "solo": False, "margin": False}
+            for ln in (page.get_text("text") or "").splitlines()
+        ]
+    height = float(data.get("height") or page.rect.height or 0.0)
+    for b_idx, block in enumerate(data.get("blocks", [])):
+        if block.get("type", 0) != 0 or _inside(block["bbox"], table_bboxes):
+            continue
+        lines = block.get("lines", [])
+        for line in lines:
+            spans = [sp for sp in line.get("spans", []) if sp.get("text", "").strip()]
+            if not spans:
+                continue
+            text = "".join(sp["text"] for sp in line["spans"]).strip()
+            # Dominant span by character count decides size and weight.
+            main = max(spans, key=lambda sp: len(sp["text"].strip()))
+            out.append(
+                {
+                    "text": text,
+                    "size": round(float(main.get("size", 0.0)) * 2) / 2,
+                    "bold": bool(main.get("flags", 0) & _BOLD),
+                    "y": float(line["bbox"][1]),
+                    "block": b_idx,
+                    "solo": len(lines) == 1,
+                    "margin": bool(height)
+                    and not (height * _MARGIN < line["bbox"][1] < height * (1 - _MARGIN)),
+                }
+            )
+    return out
+
+
+def _drop_page_furniture(pages: List[List[dict]]) -> List[List[dict]]:
+    """Remove running headers/footers and page numbers.
+
+    Only lines in the top/bottom page margin are candidates, which is what
+    makes it safe to ignore digits when matching ("Manual - 12" vs "- 13"):
+    templated body text such as "rated 10 kW" / "rated 22 kW" is never
+    touched.
+    """
+
+    def key(line: dict) -> str:
+        return _DIGITS.sub("#", line["text"].strip().lower())
+
+    counts: Counter = Counter()
+    for lines in pages:
+        counts.update({key(ln) for ln in lines if ln["margin"]})
+    threshold = max(2, int(len(pages) * 0.5))
+    repeated = {k for k, n in counts.items() if n >= threshold} if len(pages) > 1 else set()
+    return [
+        [
+            ln
+            for ln in lines
+            if not (
+                ln["margin"]
+                and (key(ln) in repeated or PAGE_NUM_ONLY.match(ln["text"]))
+            )
+        ]
+        for lines in pages
+    ]
+
+
+def _body_size(lines: List[dict]) -> float:
+    sizes: Counter = Counter()
+    for ln in lines:
+        sizes[ln["size"]] += len(ln["text"])
+    return sizes.most_common(1)[0][0] if sizes else 0.0
+
+
+@dataclass
+class _HeadingScale:
+    """Font sizes that mark headings, relative to the body text size."""
+
+    body: float = 0.0
+    by_size: Dict[float, int] = field(default_factory=dict)
+    bold_level: int = 1
+
+    def level(self, line: dict) -> Optional[int]:
+        text = line["text"]
+        if self.body <= 0 or len(text) > _MAX_HEADING_CHARS:
+            return None
+        if not any(c.isalpha() for c in text):
+            return None
+        if line["size"] in self.by_size:
+            return self.by_size[line["size"]]
+        # A bold, standalone, short line at body size is a run-in heading
+        # ("Lubrication"), but not a bold sentence or a "Note:" label.
+        if (
+            line["bold"]
+            and line["solo"]
+            and line["size"] == self.body
+            and len(text) <= 80
+            and not text.endswith((".", ",", ";", ":"))
+        ):
+            return self.bold_level
+        return None
+
+
+def _heading_scale(lines: List[dict], max_levels: int = 3) -> _HeadingScale:
+    """Map font sizes clearly larger than body text to heading levels 1..n."""
+    body = _body_size(lines)
+    if body <= 0:
+        return _HeadingScale()
+    larger = sorted(
+        {ln["size"] for ln in lines if ln["size"] >= body * 1.15}, reverse=True
+    )
+    return _HeadingScale(
+        body=body,
+        by_size={size: min(i + 1, max_levels) for i, size in enumerate(larger)},
+        bold_level=min(len(larger) + 1, max_levels + 1),
+    )
+
+
+def _render_page(
+    lines: List[dict], tables: List[Tuple[tuple, str]], scale: _HeadingScale
+) -> str:
+    """Rebuild one page as markdown, tables placed in reading order."""
+    items: List[Tuple[float, str]] = []
+    para: List[str] = []
+    para_y = 0.0
+    last_block = None
+    last_heading: Optional[Tuple[int, float]] = None
+
+    def flush():
+        nonlocal para
+        if para:
+            items.append((para_y, "\n".join(para)))
+            para = []
+
+    for ln in lines:
+        level = scale.level(ln)
+        if level is not None:
+            flush()
+            # Wrapped headings: merge consecutive lines of the same heading.
+            if (
+                last_heading
+                and last_heading[0] == level
+                and ln["block"] == last_block
+                and items
+            ):
+                y, text = items[-1]
+                items[-1] = (y, f"{text} {ln['text']}")
+            else:
+                items.append((ln["y"], "#" * level + " " + ln["text"]))
+            last_heading = (level, ln["y"])
+            last_block = ln["block"]
+            continue
+        if ln["block"] != last_block:
+            flush()
+            para_y = ln["y"]
+        para.append(ln["text"])
+        last_block = ln["block"]
+        last_heading = None
+    flush()
+
+    items.extend((bbox[1], md) for bbox, md in tables)
+    items.sort(key=lambda item: item[0])
+    return "\n\n".join(text for _, text in items)
+
+
+def _first_heading(pages: List[str]) -> Optional[str]:
+    for page in pages:
+        for line in page.splitlines():
+            if line.startswith("# "):
+                return line[2:].strip()
+    return None

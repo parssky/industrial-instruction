@@ -83,6 +83,15 @@ print(report.outputs, "samples")
 `markdown` (for corpora that are already converted). Register your own with
 `register_extractor("name", factory)`.
 
+The `pymupdf` backend reads font sizes and positions, not just text: lines
+set clearly larger than the body text become `#`/`##`/`###` headings (bold
+standalone lines at body size become the next level down), tables are
+written once as markdown at the place they appear on the page, and running
+headers/footers and page numbers are removed from the page margins. Headings
+are what the default `heading` chunker splits on, and each chunk carries its
+`Section > Subsection` breadcrumb so retrieval and the generator see it. Turn
+heading detection off with `extract.backend_options: {detect_headings: false}`.
+
 **Embedder.** `embed.backend` selects `sentence_transformers` (default,
 any Hub id or local path), `openai` (any OpenAI-compatible embeddings
 endpoint) or `hash` (deterministic, offline, for tests). Queries and
