@@ -53,7 +53,7 @@ def load_split(dataset: str, split: Optional[str], config_name: Optional[str] = 
     """A dataset split from a ``save_to_disk`` directory or the Hub.
 
     On the Hub the split is looked up by name across the repo's configs and
-    splits, so ``panasonic_qa_v1_test`` is found whether it is published as
+    splits, so ``pana_qa_v1_test`` is found whether it is published as
     a config, a split, or a data directory. If nothing matches, the error
     lists what exists instead of loading the wrong thing.
     """

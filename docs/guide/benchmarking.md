@@ -52,8 +52,8 @@ works:
 
 ```yaml
 benchmark:
-  paper_qwen_split: panasonic_qa_v1_test               # Hub name…
-  paper_claude_split: /data/panasonic_qa_claude_v1_test  # …or a local folder
+  paper_qwen_split: pana_qa_v1_test               # Hub name…
+  paper_claude_split: /data/pana_qa_claude_v1_test  # …or a local folder
 ```
 
 ## Context modes

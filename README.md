@@ -433,8 +433,8 @@ ii bench --suite custom --set benchmark.custom.path=my_bench.jsonl --limit 50
 | Suite | Data | Metrics |
 |---|---|---|
 | `ibm` | [FailureSensorIQ](https://huggingface.co/datasets/ibm-research/FailureSensorIQ): each question in an original and a perturbed form | `acc_original`, `acc_perturb`, `consistency` (both right) |
-| `paper-qwen` | held-out test split of the paper's Qwen-generated data (`panasonic_qa_v1_test`) | set match, F1, Jaccard |
-| `paper-claude` | held-out test split of the Claude-generated data (`panasonic_qa_claude_v1_test`) | set match, F1, Jaccard |
+| `paper-qwen` | held-out test split of the paper's Qwen-generated data (`pana_qa_v1_test`) | set match, F1, Jaccard |
+| `paper-claude` | held-out test split of the Claude-generated data (`pana_qa_claude_v1_test`) | set match, F1, Jaccard |
 | `generated` | `artifacts/dataset/test.jsonl` from your own run | set match, F1, Jaccard |
 | `custom` | any multiple-choice set: jsonl, json, Hub dataset or `save_to_disk` folder | set match, F1, Jaccard |
 
@@ -456,8 +456,8 @@ benchmark:
   suites: [ibm]
   contexts: [none]
   retrieval_k: 3
-  paper_qwen_split: panasonic_qa_v1_test        # Hub name or a local save_to_disk folder
-  paper_claude_split: panasonic_qa_claude_v1_test
+  paper_qwen_split: pana_qa_v1_test        # Hub name or a local save_to_disk folder
+  paper_claude_split: pana_qa_claude_v1_test
   custom:
     source: jsonl              # jsonl | json | huggingface | disk
     path: my_bench.jsonl

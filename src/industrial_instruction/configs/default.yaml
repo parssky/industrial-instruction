@@ -163,8 +163,8 @@ benchmark:
   output_dir: artifacts/benchmarks
   # paper splits: Hub names, or local save_to_disk directories
   paper_dataset: Parssky/industrial-instruction-dataset
-  paper_qwen_split: panasonic_qa_v1_test
-  paper_claude_split: panasonic_qa_claude_v1_test
+  paper_qwen_split: pana_qa_v1_test
+  paper_claude_split: pana_qa_claude_v1_test
   custom:
     source: jsonl # jsonl | json | huggingface | disk
     path: null

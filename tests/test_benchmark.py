@@ -121,7 +121,7 @@ def fake_hub(monkeypatch):
     def load_split(dataset, split, config_name=None):
         if dataset == "ibm-research/FailureSensorIQ":
             return IBM_ROWS[split]
-        if split == "panasonic_qa_claude_v1_test":
+        if split == "pana_qa_claude_v1_test":
             return [{"question": "Which relay? Options: A. EKM B. AMN C. ERJ", "answer": ["B"],
                      "documents": ["AMN relays are used for..."]}]
         raise suites_mod.SuiteError(f"no {split}")
@@ -316,8 +316,8 @@ class StubDatasets:
 @pytest.mark.parametrize(
     "layout, expected",
     [
-        ({"default": ["panasonic_qa_v1_test", "train"]}, ("default", "panasonic_qa_v1_test")),
-        ({"panasonic_qa_v1_test": ["test"], "other": ["test"]}, ("panasonic_qa_v1_test", "test")),
+        ({"default": ["pana_qa_v1_test", "train"]}, ("default", "pana_qa_v1_test")),
+        ({"pana_qa_v1_test": ["test"], "other": ["test"]}, ("pana_qa_v1_test", "test")),
     ],
 )
 def test_load_split_finds_a_split_or_a_config(monkeypatch, layout, expected):
@@ -325,7 +325,7 @@ def test_load_split_finds_a_split_or_a_config(monkeypatch, layout, expected):
 
     stub = StubDatasets(layout)
     monkeypatch.setitem(sys.modules, "datasets", stub)
-    suites_mod.load_split("Parssky/industrial-instruction-dataset", "panasonic_qa_v1_test")
+    suites_mod.load_split("Parssky/industrial-instruction-dataset", "pana_qa_v1_test")
     assert stub.loaded == expected
 
 
@@ -334,12 +334,12 @@ def test_load_split_lists_what_exists_when_nothing_matches(monkeypatch):
 
     monkeypatch.setitem(sys.modules, "datasets", StubDatasets({"default": ["r0", "r1"]}))
     with pytest.raises(suites_mod.SuiteError, match=r"default/r0"):
-        suites_mod.load_split("Parssky/industrial-instruction-dataset", "panasonic_qa_v1_test")
+        suites_mod.load_split("Parssky/industrial-instruction-dataset", "pana_qa_v1_test")
 
 
 def test_paper_split_can_be_a_local_save_to_disk_dir(tmp_path):
     datasets = pytest.importorskip("datasets")
-    path = tmp_path / "panasonic_qa_claude_v1_test"
+    path = tmp_path / "pana_qa_claude_v1_test"
     datasets.Dataset.from_list(
         [{"question": "Which? Options: A. x B. y", "answer": ["A"], "documents": ["d"]}]
     ).save_to_disk(str(path))

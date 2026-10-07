@@ -392,8 +392,8 @@ class BenchmarkConfig(_Base):
     ibm_dataset: str = "ibm-research/FailureSensorIQ"
     ibm_splits: List[str] = Field(default_factory=lambda: ["org", "pert"])
     paper_dataset: str = "Parssky/industrial-instruction-dataset"
-    paper_qwen_split: str = "panasonic_qa_v1_test"
-    paper_claude_split: str = "panasonic_qa_claude_v1_test"
+    paper_qwen_split: str = "pana_qa_v1_test"
+    paper_claude_split: str = "pana_qa_claude_v1_test"
     custom: CustomBenchmarkConfig = Field(default_factory=CustomBenchmarkConfig)
 
     @model_validator(mode="after")
