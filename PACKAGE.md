@@ -92,6 +92,44 @@ are what the default `heading` chunker splits on, and each chunk carries its
 `Section > Subsection` breadcrumb so retrieval and the generator see it. Turn
 heading detection off with `extract.backend_options: {detect_headings: false}`.
 
+**OCR.** Scanned or image-only pages are sent to an OCR model when
+`extract.ocr.mode` is `auto` (pages with no text layer) or `always`. An OCR
+backend is just a function, page image in, markdown out:
+
+```python
+from industrial_instruction.ocr import OCRPage, register_ocr
+
+def my_ocr(page: OCRPage) -> str:
+    # page.image (PNG bytes), page.data_url(), page.to_pil(), page.page_number,
+    # page.text_layer, page.options (= extract.ocr.options)
+    return call_my_model(page.image)
+
+register_ocr("my-ocr", my_ocr)          # then extract.ocr.backend: my-ocr
+```
+
+Or attach it without any Python wiring by an import path, which also works
+from the CLI:
+
+```yaml
+extract:
+  ocr:
+    mode: auto
+    backend: ocr/my_model.py:my_ocr      # file next to the config, or my_pkg.ocr:my_ocr
+    options: { lang: deu }               # anything your function needs
+```
+
+Two backends are built in: `openai` sends the page to any OpenAI-compatible
+vision endpoint, so a VLM served by vLLM needs only `base_url` and `model`;
+`tesseract` runs offline (`pip install '.[ocr-tesseract]'`). For a backend
+that loads weights, register a factory with
+`@ocr_backend("name", factory=True)`. It is called once with the OCR config
+and returns the page function.
+
+The pipeline handles the rest for every backend. Pages are OCR'd
+concurrently (`max_workers`) and cached by image hash in
+`artifacts/ocr_cache`. A page whose OCR fails keeps its text layer and is
+counted in the manifest. See `examples/custom_ocr.py`.
+
 **Embedder.** `embed.backend` selects `sentence_transformers` (default,
 any Hub id or local path), `openai` (any OpenAI-compatible embeddings
 endpoint) or `hash` (deterministic, offline, for tests). Queries and

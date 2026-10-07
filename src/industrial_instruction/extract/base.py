@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import abc
 from pathlib import Path
+from typing import Dict, List
 
 from industrial_instruction.config import ExtractConfig
 from industrial_instruction.schemas import Document
@@ -25,6 +26,54 @@ class Extractor(abc.ABC):
 
     def __init__(self, config: ExtractConfig | None = None) -> None:
         self.config = config or ExtractConfig()
+        #: Base for relative OCR paths (backend file, cache); the extract
+        #: stage sets it to ``paths.root``.
+        self.root: Path = Path.cwd()
+        self._ocr = None
+
+    @property
+    def ocr(self):
+        """The :class:`~industrial_instruction.ocr.PageOCR` for this run."""
+        if self._ocr is None:
+            from industrial_instruction.ocr.runner import PageOCR
+
+            self._ocr = PageOCR(self.config.ocr, root=self.root)
+        return self._ocr
+
+    def flush_ocr(
+        self, pending: List, results: Dict[int, str], stats: Dict[str, int]
+    ) -> None:
+        """OCR the ``pending`` pages into ``results`` (page number -> markdown).
+
+        Pages are flushed in batches so a 500-page scan never holds 500
+        rendered images in memory. A page whose OCR fails or comes back
+        empty is left out of ``results`` and keeps its text layer.
+        """
+        if not pending:
+            return
+        for number, result in self.ocr.run(pending).items():
+            if result.error:
+                stats["ocr_failed"] += 1
+            elif result.ok:
+                results[number] = result.markdown
+                stats["ocr_pages"] += 1
+                stats["ocr_cached"] += int(result.cached)
+            else:
+                stats["ocr_empty"] += 1
+        pending.clear()
+
+    @staticmethod
+    def new_ocr_stats() -> Dict[str, int]:
+        return {"ocr_pages": 0, "ocr_cached": 0, "ocr_failed": 0, "ocr_empty": 0}
+
+    def ocr_meta(self, stats: Dict[str, int]) -> Dict[str, object]:
+        if not self.ocr.enabled:
+            return {}
+        return {"ocr_backend": self.config.ocr.backend, **stats}
+
+    def ocr_batch_size(self) -> int:
+        """Pages held in memory before OCR runs (rendered PNGs are large)."""
+        return max(self.config.ocr.max_workers, 1) * 4
 
     @abc.abstractmethod
     def extract(self, path: str | Path) -> Document:
@@ -50,6 +99,6 @@ class Extractor(abc.ABC):
             raise ExtractionError(
                 f"{doc.source_path}: only {len(doc.markdown.strip())} chars extracted "
                 f"(min {self.config.min_chars_per_doc}). The PDF may be scanned; "
-                "enable OCR or use another backend."
+                "set extract.ocr.mode: auto and an extract.ocr.backend."
             )
         return doc

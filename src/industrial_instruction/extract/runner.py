@@ -61,6 +61,11 @@ def extract_documents(
         logger.warning("No input files found under %s", src)
 
     extractor = get_extractor(config.extract)
+    extractor.root = Path(config.paths.root).resolve()
+    if extractor.ocr.enabled:
+        # Resolve the backend now: a typo in extract.ocr.backend should stop
+        # the stage, not fail quietly on every page of every document.
+        extractor.ocr.fn
     docs: List[Document] = []
     failures: List[dict] = []
 
@@ -95,6 +100,8 @@ def extract_documents(
             "tables": sum(d.n_tables for d in docs),
             "images_dropped": sum(d.n_images_dropped for d in docs),
             "pages": sum(d.n_pages for d in docs),
+            "ocr_pages": sum(int(d.meta.get("ocr_pages", 0)) for d in docs),
+            "ocr_failed": sum(int(d.meta.get("ocr_failed", 0)) for d in docs),
         },
     )
     logger.info(
@@ -105,6 +112,13 @@ def extract_documents(
         report.details["images_dropped"],
         report.seconds,
     )
+    if config.extract.ocr.mode != "off":
+        logger.info(
+            "extract: %d pages OCR'd with %s, %d failed (kept their text layer)",
+            report.details["ocr_pages"],
+            config.extract.ocr.backend,
+            report.details["ocr_failed"],
+        )
     return report
 
 

@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from industrial_instruction.schemas import DEFAULT_RELATIONS, RelationSpec
 
@@ -57,6 +57,48 @@ class PathsConfig(_Base):
         return p if p.is_absolute() else (Path(self.root) / p).resolve()
 
 
+class OCRConfig(_Base):
+    """Page OCR for scanned or image-only PDF pages.
+
+    ``backend`` is either a registered name (``openai``, ``tesseract``, or
+    anything added with ``register_ocr``) or an import path to your own
+    function: ``my_pkg.ocr:run`` or ``ocr/my_model.py:run``. The function
+    receives an :class:`~industrial_instruction.ocr.OCRPage` and returns the
+    page as markdown.
+    """
+
+    mode: str = "off"  # off | auto (pages without a text layer) | always
+    backend: str = "openai"
+    min_chars_per_page: int = 50  # auto: OCR pages with less text than this
+    dpi: int = 200
+    max_workers: int = 4  # pages OCR'd concurrently (servers batch these)
+    cache: bool = True  # reuse results for identical page images
+    cache_dir: str = "artifacts/ocr_cache"  # relative to paths.root
+    # Built-in ``openai`` backend: any OpenAI-compatible vision endpoint,
+    # e.g. a vLLM server running Qwen2.5-VL, olmOCR or Nanonets-OCR.
+    base_url: Optional[str] = None
+    model: str = "gpt-4.1-mini"
+    api_key_env: str = "OPENAI_API_KEY"
+    prompt: Optional[str] = None  # null = packaged prompt; "" = image only
+    max_tokens: int = 4096
+    temperature: float = 0.0
+    timeout: float = 180.0
+    max_retries: int = 3
+    # Free-form settings handed to custom functions as ``page.options``.
+    options: Dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("mode", mode="before")
+    @classmethod
+    def _yaml_bools(cls, value: Any) -> Any:
+        # YAML 1.1 reads an unquoted `off` as False (and `on` as True).
+        if isinstance(value, bool):
+            return "auto" if value else "off"
+        return value.lower() if isinstance(value, str) else value
+
+    def resolve_api_key(self) -> str:
+        return os.environ.get(self.api_key_env) or "no-key"
+
+
 class ExtractConfig(_Base):
     """PDF -> image-free markdown (text + tables)."""
 
@@ -69,8 +111,19 @@ class ExtractConfig(_Base):
     strip_headers_footers: bool = True
     dehyphenate: bool = True
     recursive: bool = True  # walk subdirectories of paths.pdfs
-    ocr_fallback: bool = False
+    ocr_fallback: bool = False  # deprecated: same as ocr.mode = auto
+    ocr: OCRConfig = Field(default_factory=OCRConfig)
     backend_options: Dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _legacy_ocr_flag(self) -> "ExtractConfig":
+        if self.ocr_fallback and self.ocr.mode == "off":
+            self.ocr.mode = "auto"
+        if self.ocr.mode not in ("off", "auto", "always"):
+            raise ValueError(
+                f"extract.ocr.mode must be off, auto or always, got {self.ocr.mode!r}"
+            )
+        return self
 
 
 class ChunkConfig(_Base):

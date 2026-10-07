@@ -30,8 +30,25 @@ extract:
   page_markers: true
   strip_headers_footers: true
   dehyphenate: true
-  min_chars_per_doc: 200 # scanned PDFs with no text layer are skipped
+  min_chars_per_doc: 200 # documents with less text than this are skipped
   recursive: true
+  ocr:
+    # off | auto (only pages without a text layer) | always (every page)
+    mode: off
+    # A registered name (openai, tesseract, or your register_ocr() name),
+    # or an import path to your own function page -> markdown:
+    #   my_pkg.ocr:run   or   ocr/my_model.py:run  (relative to this file)
+    backend: openai
+    # Settings for the built-in `openai` backend: any OpenAI-compatible vision
+    # model, e.g. `vllm serve Qwen/Qwen2.5-VL-7B-Instruct`.
+    base_url: null # e.g. http://localhost:8000/v1
+    model: gpt-4.1-mini
+    api_key_env: OPENAI_API_KEY
+    prompt: null # null = packaged prompt, "" = send the image only
+    dpi: 200
+    max_workers: 4 # pages in flight at once
+    cache: true # artifacts/ocr_cache: re-runs don't re-OCR pages
+    options: {} # passed to custom functions as page.options
 
 chunk:
   strategy: heading # heading | fixed

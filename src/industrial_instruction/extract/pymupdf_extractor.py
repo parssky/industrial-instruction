@@ -21,6 +21,7 @@ from industrial_instruction.extract.tables import (
     table_dimensions,
 )
 from industrial_instruction.extract.text_cleanup import PAGE_NUM_ONLY, clean_pages
+from industrial_instruction.ocr.base import OCRPage
 from industrial_instruction.schemas import Document
 from industrial_instruction.utils.logging import get_logger
 
@@ -63,6 +64,9 @@ class PyMuPDFExtractor(Extractor):
         page_tables: List[List[Tuple[tuple, str]]] = []
         n_tables = 0
         n_images = 0
+        ocr_pending: List[OCRPage] = []
+        ocr_text: Dict[int, str] = {}
+        ocr_stats = self.new_ocr_stats()
 
         with pymupdf.open(p) as doc:
             title = (doc.metadata or {}).get("title") or None
@@ -75,6 +79,13 @@ class PyMuPDFExtractor(Extractor):
                     except Exception:  # pragma: no cover - defensive
                         pass
 
+                if self.ocr.enabled:
+                    text_layer = page.get_text("text") or ""
+                    if self.ocr.needs_ocr(text_layer):
+                        ocr_pending.append(self._ocr_page(page, p, text_layer))
+                        if len(ocr_pending) >= self.ocr_batch_size():
+                            self.flush_ocr(ocr_pending, ocr_text, ocr_stats)
+
                 tables: List[Tuple[tuple, str]] = []
                 if self.config.extract_tables and self.config.table_backend != "none":
                     tables = self._page_tables(page)
@@ -82,6 +93,7 @@ class PyMuPDFExtractor(Extractor):
                 page_lines.append(_text_lines(page, [bbox for bbox, _ in tables]))
                 page_tables.append(tables)
             n_pages = doc.page_count
+        self.flush_ocr(ocr_pending, ocr_text, ocr_stats)
 
         if self.config.strip_headers_footers:
             page_lines = _drop_page_furniture(page_lines)
@@ -91,8 +103,10 @@ class PyMuPDFExtractor(Extractor):
             else _HeadingScale()
         )
         page_texts = [
-            _render_page(lines, tables, scale)
-            for lines, tables in zip(page_lines, page_tables)
+            # OCR output is already markdown (headings, tables) and replaces
+            # the layout pass for its page.
+            ocr_text.get(i + 1) or _render_page(lines, tables, scale)
+            for i, (lines, tables) in enumerate(zip(page_lines, page_tables))
         ]
         if not title:
             title = _first_heading(page_texts) or p.stem
@@ -113,8 +127,22 @@ class PyMuPDFExtractor(Extractor):
             n_pages=n_pages,
             n_tables=n_tables,
             n_images_dropped=n_images,
+            meta=self.ocr_meta(ocr_stats),
         )
         return self.validate(doc_obj)
+
+    def _ocr_page(self, page, path: Path, text_layer: str) -> OCRPage:
+        pix = page.get_pixmap(dpi=self.config.ocr.dpi)
+        return OCRPage(
+            image=pix.tobytes("png"),
+            page_number=page.number + 1,
+            source_path=str(path),
+            dpi=self.config.ocr.dpi,
+            width=pix.width,
+            height=pix.height,
+            text_layer=text_layer,
+            options=dict(self.config.ocr.options),
+        )
 
     # ------------------------------------------------------------------
 
