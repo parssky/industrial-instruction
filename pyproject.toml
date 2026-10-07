@@ -35,7 +35,7 @@ marker = ["marker-pdf>=0.2"]
 local-embed = ["sentence-transformers>=3.0", "torch>=2.0"]
 faiss = ["faiss-cpu>=1.7"]
 hub = ["datasets>=2.18", "huggingface-hub>=0.23"]
-bench = ["datasets>=2.18"]  # ibm / paper suites load from the Hub
+bench = ["datasets>=2.18", "huggingface-hub>=0.23"]  # Hub suites and hf: indexes
 ocr-tesseract = ["pytesseract>=0.3.10", "Pillow>=10.0"]
 all = [
     "PyMuPDF>=1.24",
@@ -43,6 +43,7 @@ all = [
     "sentence-transformers>=3.0",
     "faiss-cpu>=1.7",
     "datasets>=2.18",
+    "huggingface-hub>=0.23",
 ]
 dev = ["pytest>=7.4", "ruff>=0.5"]
 
