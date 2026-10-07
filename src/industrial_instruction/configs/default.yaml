@@ -69,6 +69,23 @@ embed:
 store:
   index_type: flat_ip # flat_ip (cosine) | flat_l2 | hnsw
 
+retrieval:
+  # Where generation and `ii bench --context retrieved` get documents.
+  #   index    - this project's index, built by `ii index --corpus <dir|jsonl>`
+  #   faiss    - an index you built yourself: directory, index file, or
+  #              hf:owner/repo (e.g. hf:Parssky/industrial-instruction-faiss).
+  #              Both this package's format and the original paper format
+  #              ({"0": "chunk text", ...} id map) are read.
+  #   function - your own retriever: registered name or my_pkg.mod:search
+  #              taking (query, k) and returning texts or dicts
+  source: index
+  path: null
+  mapping_path: null # only if id_map.json is not next to the index
+  text_field: text # key of the text when id-map entries are dicts
+  embed: null # model the faiss index was built with; null = `embed` above
+  backend: null # function retriever
+  options: {}
+
 seeds:
   # Where the "simulated instruction" style examples come from.
   #   huggingface -> any HF dataset (the paper used FailureSensorIQ)

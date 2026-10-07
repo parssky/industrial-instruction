@@ -68,11 +68,12 @@ class GenerationEngine:
 
     # ------------------------------------------------------------------
 
-    def _ensure_store(self) -> FaissStore:
+    def _ensure_store(self):
+        """The retriever named by ``retrieval.source`` (project index by default)."""
         if self.store is None:
-            from industrial_instruction.store.runner import load_store
+            from industrial_instruction.store.retrieval import get_retriever
 
-            self.store = load_store(self.config)
+            self.store = get_retriever(self.config)
         return self.store
 
     def _pool_size(self, relations: Sequence[RelationSpec]) -> int:

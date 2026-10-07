@@ -26,6 +26,7 @@ STAGE_KEYS = (
     "chunk",
     "embed",
     "store",
+    "retrieval",
     "seeds",
     "generate",
     "filter",
@@ -160,6 +161,39 @@ class StoreConfig(_Base):
     mapping_filename: str = "id_map.json"
     meta_filename: str = "store_meta.json"
     hnsw_m: int = 32
+
+
+class RetrievalConfig(_Base):
+    """Where ``generate`` and ``ii bench --context retrieved`` get documents.
+
+    ``source``:
+      * ``index``    - this project's FAISS index (``paths.index``), built from
+                      your corpus by ``ii index`` or ``ii index --corpus``
+      * ``faiss``    - a FAISS index you built yourself: a directory or index
+                      file plus ``id_map.json``, in this package's format or
+                      the original paper format (``{"0": "chunk text"}``).
+                      ``hf:owner/repo`` downloads it from the Hub.
+      * ``function`` - your own retriever, ``fn(query, k) -> [text | dict]``,
+                      registered by name or given as ``my_pkg.mod:fn`` /
+                      ``retrievers/mine.py:fn``
+    """
+
+    source: str = "index"  # index | faiss | function
+    path: Optional[str] = None  # faiss: directory, index file or hf:owner/repo
+    mapping_path: Optional[str] = None  # faiss: id_map.json if not next to the index
+    text_field: str = "text"  # faiss/function: text key when entries are dicts
+    # Embedding model for querying a `faiss` index. null = the top-level
+    # `embed` section; for the original paper format the prefixes are then
+    # cleared, because that index was built with plain encode(text).
+    embed: Optional[EmbedConfig] = None
+    backend: Optional[str] = None  # function: registered name or import path
+    options: Dict[str, Any] = Field(default_factory=dict)  # passed to factories
+
+    @model_validator(mode="after")
+    def _check(self) -> "RetrievalConfig":
+        if self.source not in ("index", "faiss", "function"):
+            raise ValueError("retrieval.source must be index, faiss or function")
+        return self
 
 
 class SeedsConfig(_Base):
@@ -379,6 +413,7 @@ class Config(_Base):
     chunk: ChunkConfig = Field(default_factory=ChunkConfig)
     embed: EmbedConfig = Field(default_factory=EmbedConfig)
     store: StoreConfig = Field(default_factory=StoreConfig)
+    retrieval: RetrievalConfig = Field(default_factory=RetrievalConfig)
     seeds: SeedsConfig = Field(default_factory=SeedsConfig)
     generate: GenerateConfig = Field(default_factory=GenerateConfig)
     filter: FilterConfig = Field(default_factory=FilterConfig)

@@ -188,6 +188,36 @@ generate:
       description: comparison across two datasheets
 ```
 
+## Retrieval
+
+Generation and `ii bench --context retrieved` read documents from one
+retriever, chosen by `retrieval.source`:
+
+```bash
+# 1. index: build this project's index from your corpus in one step
+ii index --corpus data/pdfs              # PDFs: extract + chunk + embed
+ii index --corpus docs/                  # markdown / text files
+ii index --corpus passages.jsonl         # ready-made passages, indexed as given
+
+# 2. faiss: an index you built yourself (this package's or the paper's format)
+ii bench --context retrieved --set retrieval.source=faiss \
+         --set retrieval.path=hf:Parssky/industrial-instruction-faiss
+
+# 3. function: your own retriever (Elasticsearch, Qdrant, a reranker, ...)
+ii bench --context retrieved --set retrieval.source=function \
+         --set retrieval.backend=retrievers/es.py:search
+```
+
+A retriever function takes `(query, k)` and returns texts, dicts (with
+`text` and optionally `score`/`id`/metadata) or `Chunk` objects. Register
+one in Python with `register_retriever("name", fn)`, or use
+`@retriever_backend("name", factory=True)` to set up a client once per run.
+
+For a `faiss` index, the embedding model must be the one the index was built
+with (`retrieval.embed`, default: the `embed` section). A mismatched vector
+width is reported. Indexes in the original paper format were built with
+plain `encode(text)`, so they are queried without the `embed` prefixes.
+
 ## Benchmarking
 
 Serve the model with vLLM (or anything OpenAI-compatible), then point

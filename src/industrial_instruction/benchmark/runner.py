@@ -89,9 +89,9 @@ class ContextBuilder:
     @property
     def store(self):
         if self._store is None:
-            from industrial_instruction.store.runner import load_store
+            from industrial_instruction.store.retrieval import get_retriever
 
-            self._store = load_store(self.config)
+            self._store = get_retriever(self.config)
         return self._store
 
     def documents(self, item: BenchItem, mode: str) -> Optional[List[str]]:
@@ -194,6 +194,8 @@ def run_benchmarks(
     contexts = list(contexts or cfg.contexts)
     endpoint = endpoint or Endpoint(cfg.endpoint)
     builder = ContextBuilder(config, store=store)
+    if "retrieved" in contexts and store is None:
+        builder.store  # fail before any request if the retriever can't be opened
 
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     slug = re.sub(r"[^A-Za-z0-9._-]+", "_", endpoint.model).strip("_")[-80:]
@@ -230,11 +232,18 @@ def run_benchmarks(
         "base_url": cfg.endpoint.base_url,
         "created_at": stamp,
         "config": cfg.model_dump(mode="json", exclude={"endpoint": {"api_key_env"}}),
+        "retrieval": _describe_retrieval(config) if "retrieved" in contexts else None,
         "results": results,
     }
     write_json(out_dir / "summary.json", summary)
     summary["output_dir"] = str(out_dir)
     return summary
+
+
+def _describe_retrieval(config: Config) -> Dict[str, Any]:
+    from industrial_instruction.store.retrieval import describe
+
+    return {**describe(config), "k": config.benchmark.retrieval_k}
 
 
 def format_table(summary: Dict[str, Any]) -> str:

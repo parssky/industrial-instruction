@@ -92,7 +92,18 @@ def cmd_chunk(args) -> int:
 
 
 def cmd_index(args) -> int:
-    _print_report(_pipeline(args).run_index())
+    if not args.corpus:
+        _print_report(_pipeline(args).run_index())
+        return 0
+    from industrial_instruction.store.runner import index_corpus
+
+    pipeline = _pipeline(args)
+    reports = index_corpus(
+        pipeline.config, args.corpus, text_field=args.text_field, id_field=args.id_field
+    )
+    for report in reports:
+        pipeline._record(report)
+        _print_report(report)
     return 0
 
 
@@ -212,10 +223,21 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--force", action="store_true")
     init.set_defaults(func=cmd_init)
 
+    index = add_common(
+        subparsers.add_parser("index", help="embed chunks (or a whole corpus) into a FAISS index")
+    )
+    index.add_argument(
+        "--corpus",
+        help="build from a PDF/markdown directory or a passages .jsonl in one step "
+        "(extract + chunk + index)",
+    )
+    index.add_argument("--text-field", default="text", help="passages .jsonl text key")
+    index.add_argument("--id-field", default="id", help="passages .jsonl id key")
+    index.set_defaults(func=cmd_index)
+
     for name, help_text, func in (
         ("extract", "extract text and tables from PDFs", cmd_extract),
         ("chunk", "split documents into retrieval chunks", cmd_chunk),
-        ("index", "embed chunks into a FAISS index", cmd_index),
         ("generate", "generate QA samples", cmd_generate),
         ("filter", "filter generated samples", cmd_filter),
         ("assemble", "merge and split into a dataset", cmd_assemble),

@@ -16,14 +16,12 @@ and returns the page function. Use that when the backend needs setup
 
 from __future__ import annotations
 
-import importlib
-import importlib.util
-import sys
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
 from industrial_instruction.config import OCRConfig
 from industrial_instruction.ocr.base import OCRError, OCRFunction
+from industrial_instruction.utils.plugins import load_callable
 
 _Factory = Callable[[OCRConfig], OCRFunction]
 _REGISTRY: Dict[str, Tuple[Callable, bool]] = {}
@@ -85,31 +83,7 @@ def get_ocr(config: OCRConfig, root: Optional[Union[str, Path]] = None) -> OCRFu
 
 
 def _import(spec: str, root: Optional[Union[str, Path]]) -> Callable:
-    module_part, _, attr = spec.rpartition(":")
-    if not module_part or not attr:
-        raise OCRError(f"OCR backend {spec!r} must look like 'module:function'")
-
-    if module_part.endswith(".py"):
-        path = Path(module_part)
-        if not path.is_absolute() and root is not None:
-            path = Path(root) / path
-        if not path.exists():
-            raise OCRError(f"OCR backend file not found: {path}")
-        mod_name = f"_ii_ocr_{path.stem}"
-        module_spec = importlib.util.spec_from_file_location(mod_name, path)
-        module = importlib.util.module_from_spec(module_spec)
-        sys.modules[mod_name] = module
-        module_spec.loader.exec_module(module)
-    else:
-        try:
-            module = importlib.import_module(module_part)
-        except ImportError as exc:
-            raise OCRError(f"cannot import OCR backend module {module_part!r}: {exc}") from exc
-
-    fn = getattr(module, attr, None)
-    if not callable(fn):
-        raise OCRError(f"{spec!r}: {attr!r} is not a callable in {module_part}")
-    return fn
+    return load_callable(spec, root, error=OCRError, what="OCR backend")
 
 
 _BUILTINS_LOADED = False

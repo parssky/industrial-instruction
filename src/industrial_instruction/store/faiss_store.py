@@ -14,6 +14,7 @@ This single class replaces the three drifted copies of
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence
@@ -205,26 +206,49 @@ class FaissStore:
     def load(
         self, directory: Optional[str | Path] = None, strict: bool = True
     ) -> "FaissStore":
-        faiss = _require_faiss()
         base, index_path, map_path, meta_path = self._paths(directory)
         if not index_path.exists():
             raise FileNotFoundError(
                 f"No FAISS index at {index_path}. Run the index stage first "
                 "(ii index)."
             )
-        self.index = faiss.read_index(str(index_path))
-
-        raw_map = read_json(map_path, default={}) if map_path.exists() else {}
-        self.chunks = {
-            int(key): Chunk.model_validate(value) for key, value in raw_map.items()
-        }
-        self._next_id = (max(self.chunks) + 1) if self.chunks else 0
-
+        self._read(index_path, map_path)
         if meta_path.exists():
             meta = read_json(meta_path, default={})
             self._check_compatibility(meta, strict=strict)
         logger.info("loaded index with %d chunks from %s", self.size, base)
         return self
+
+    def load_files(
+        self, index_path: str | Path, mapping_path: str | Path, text_field: str = "text"
+    ) -> "FaissStore":
+        """Open an index built elsewhere, e.g. with the original paper code.
+
+        ``mapping_path`` maps FAISS row ids to either full chunk records (this
+        package) or plain text / ``{text_field: ...}`` dicts (anything else).
+        The index width is checked against the embedder, since there may be
+        no ``store_meta.json`` to compare models with.
+        """
+        self._read(Path(index_path), Path(mapping_path), text_field=text_field)
+        if int(self.index.d) != int(self.embedder.dimension):
+            raise RuntimeError(
+                f"{index_path} holds {self.index.d}-dim vectors but the embedding "
+                f"model {self.embedder.config.model!r} produces {self.embedder.dimension}. "
+                "Set retrieval.embed to the model the index was built with."
+            )
+        logger.info("loaded external index with %d entries from %s", self.size, index_path)
+        return self
+
+    def _read(self, index_path: Path, map_path: Path, text_field: str = "text") -> None:
+        faiss = _require_faiss()
+        self.index = faiss.read_index(str(index_path))
+        raw_map = read_json(map_path, default={}) if map_path.exists() else {}
+        if not raw_map:
+            raise FileNotFoundError(f"No id map at {map_path}; it maps index rows to text")
+        self.chunks = {
+            int(key): _chunk_from_entry(key, value, text_field) for key, value in raw_map.items()
+        }
+        self._next_id = (max(self.chunks) + 1) if self.chunks else 0
 
     def _check_compatibility(self, meta: dict, strict: bool) -> None:
         """Guard against querying an index built with another model."""
@@ -264,3 +288,16 @@ class FaissStore:
             "index_type": self.store_config.index_type,
             "embed_model": self.embedder.config.model,
         }
+
+
+def _chunk_from_entry(key, value, text_field: str = "text") -> Chunk:
+    """An id-map entry as a Chunk: a full record, a dict, or bare text."""
+    if isinstance(value, dict):
+        if {"id", "doc_id", "text"} <= set(value):
+            return Chunk.model_validate(value)
+        text = value.get(text_field)
+        if text is None:
+            text = json.dumps(value, ensure_ascii=False)
+        meta = {k: v for k, v in value.items() if k != text_field}
+        return Chunk(id=str(key), doc_id=str(value.get("doc_id", "external")), text=str(text), meta=meta)
+    return Chunk(id=str(key), doc_id="external", text=str(value))
