@@ -294,6 +294,82 @@ class AssembleConfig(_Base):
         return formats
 
 
+class EndpointConfig(_Base):
+    """The model under test: any OpenAI-compatible server, e.g. vLLM.
+
+    The package never starts or stops the model; serve it yourself
+    (``vllm serve <model> --served-model-name my-model``) and point here.
+    """
+
+    base_url: str = "http://localhost:8000/v1"
+    model: Optional[str] = None  # null = the first model the server lists
+    api_key_env: str = "OPENAI_API_KEY"
+    temperature: float = 0.0
+    max_tokens: int = 1024
+    timeout: float = 300.0
+    max_retries: int = 3
+    max_workers: int = 32
+    # The paper's evaluation system prompt.
+    system_prompt: Optional[str] = (
+        'You are a helpful assistant. You must output your answer strictly as valid '
+        'JSON in the format {"answer": ["choice"]}.'
+    )
+
+    def resolve_api_key(self) -> str:
+        return os.environ.get(self.api_key_env) or "no-key"
+
+
+class CustomBenchmarkConfig(_Base):
+    """A user benchmark: multiple-choice items with label answers."""
+
+    source: str = "jsonl"  # jsonl | json | huggingface | disk
+    path: Optional[str] = None  # file, Hub id or save_to_disk directory
+    config_name: Optional[str] = None  # Hub dataset config
+    split: Optional[str] = "test"
+    question_field: str = "question"
+    answer_field: str = "answer"  # ["B"], "B", "B, D" or {"answer": [...]}
+    options_field: Optional[str] = "options"  # appended unless already in the question
+    documents_field: Optional[str] = "documents"  # used by context: gold
+    id_field: Optional[str] = "id"
+
+
+class BenchmarkConfig(_Base):
+    """``ii bench``: score a served model on one or more suites."""
+
+    endpoint: EndpointConfig = Field(default_factory=EndpointConfig)
+    # ibm | paper-qwen | paper-claude | generated | custom
+    suites: List[str] = Field(default_factory=lambda: ["ibm"])
+    # none: question only | gold: the item's own documents (the paper's RAG
+    # setting) | retrieved: top-k chunks from this project's FAISS index
+    contexts: List[str] = Field(default_factory=lambda: ["none"])
+    retrieval_k: int = 3
+    # How documents are put in front of the question. This is the template
+    # the paper's models were trained with, typo included, so fine-tuned
+    # checkpoints see exactly their training format.
+    context_template: str = (
+        "\n        Based on relevat document answer this question.\n"
+        "        relevant document: {documents}\n"
+        "        question: {question}\n    "
+    )
+    limit: Optional[int] = None  # items per suite, for smoke runs
+    output_dir: str = "artifacts/benchmarks"  # relative to paths.root
+    # Hub sources. The paper splits are matched by name inside the dataset
+    # repo, so a renamed config/split is found or reported, never guessed.
+    ibm_dataset: str = "ibm-research/FailureSensorIQ"
+    ibm_splits: List[str] = Field(default_factory=lambda: ["org", "pert"])
+    paper_dataset: str = "Parssky/industrial-instruction-dataset"
+    paper_qwen_split: str = "panasonic_qa_v1_test"
+    paper_claude_split: str = "panasonic_qa_claude_v1_test"
+    custom: CustomBenchmarkConfig = Field(default_factory=CustomBenchmarkConfig)
+
+    @model_validator(mode="after")
+    def _check(self) -> "BenchmarkConfig":
+        bad = [c for c in self.contexts if c not in ("none", "gold", "retrieved")]
+        if bad:
+            raise ValueError(f"benchmark.contexts: unknown {bad}; use none, gold, retrieved")
+        return self
+
+
 class Config(_Base):
     """Root configuration object."""
 
@@ -307,6 +383,7 @@ class Config(_Base):
     generate: GenerateConfig = Field(default_factory=GenerateConfig)
     filter: FilterConfig = Field(default_factory=FilterConfig)
     assemble: AssembleConfig = Field(default_factory=AssembleConfig)
+    benchmark: BenchmarkConfig = Field(default_factory=BenchmarkConfig)
 
     @classmethod
     def from_yaml(cls, path: str | Path) -> "Config":

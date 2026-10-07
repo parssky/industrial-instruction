@@ -8,6 +8,7 @@
     ii filter               rules (and optional judge) -> kept samples
     ii assemble             merge + split -> dataset
     ii run                  all of the above
+    ii bench                score a served model (IBM, paper splits, custom)
     ii info                 show resolved config and artifact status
 
 Every command takes ``-c/--config`` and repeatable ``--set key=value``
@@ -118,6 +119,22 @@ def cmd_run(args) -> int:
     return 0
 
 
+def cmd_bench(args) -> int:
+    from industrial_instruction.benchmark import format_table, run_benchmarks
+
+    config = _load_config(args)
+    if args.base_url:
+        config = config.with_override("benchmark.endpoint.base_url", args.base_url)
+    if args.model:
+        config = config.with_override("benchmark.endpoint.model", args.model)
+    if args.limit:
+        config = config.with_override("benchmark.limit", str(args.limit))
+    summary = run_benchmarks(config, suites=args.suite, contexts=args.context)
+    print(format_table(summary))
+    print(f"results: {summary['output_dir']}")
+    return 0
+
+
 def cmd_info(args) -> int:
     config = _load_config(args)
     paths = config.paths
@@ -216,6 +233,29 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     run.set_defaults(func=cmd_run)
+
+    bench = add_common(
+        subparsers.add_parser(
+            "bench",
+            help="benchmark a model served on an OpenAI-compatible endpoint (vLLM)",
+        )
+    )
+    bench.add_argument(
+        "--suite",
+        action="append",
+        help="ibm, paper-qwen, paper-claude, generated or custom (repeatable; "
+        "default benchmark.suites)",
+    )
+    bench.add_argument(
+        "--context",
+        action="append",
+        choices=["none", "gold", "retrieved"],
+        help="documents shown with each question (repeatable; default benchmark.contexts)",
+    )
+    bench.add_argument("--base-url", help="e.g. http://localhost:8000/v1")
+    bench.add_argument("--model", help="served model name (default: the first one served)")
+    bench.add_argument("--limit", type=int, help="items per suite, for a quick check")
+    bench.set_defaults(func=cmd_bench)
     return parser
 
 

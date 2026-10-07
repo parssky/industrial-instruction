@@ -8,6 +8,10 @@ service documents and get a training/evaluation dataset out the other end.
 The original notebooks are kept as-is for reproducibility; this package is
 the reusable path.
 
+The package does two things: it **builds datasets** from your PDFs, and it
+**benchmarks** a model you serve. It does not train models; use the dataset
+it writes with any trainer (TRL, Unsloth, axolotl).
+
 ## Pipeline
 
 ```
@@ -183,6 +187,47 @@ generate:
       k_docs: 4
       description: comparison across two datasheets
 ```
+
+## Benchmarking
+
+Serve the model with vLLM (or anything OpenAI-compatible), then point
+`ii bench` at it:
+
+```bash
+vllm serve your-org/your-model --port 8000
+
+ii bench --base-url http://localhost:8000/v1 --suite ibm
+ii bench --suite paper-claude --suite paper-qwen --context none --context gold
+ii bench --suite custom --set benchmark.custom.path=my_bench.jsonl --limit 50
+```
+
+| Suite | Data | Metrics |
+| --- | --- | --- |
+| `ibm` | FailureSensorIQ (IBM), original + perturbed form of each question | `acc_original`, `acc_perturb`, `consistency` (both right) |
+| `paper-qwen` | held-out test split of the paper's Qwen-generated data | set match, F1, Jaccard |
+| `paper-claude` | held-out test split of the Claude-generated data | set match, F1, Jaccard |
+| `generated` | the `test.jsonl` this project's `ii assemble` wrote | set match, F1, Jaccard |
+| `custom` | any multiple-choice set: jsonl, json, Hub or `save_to_disk` | set match, F1, Jaccard |
+
+`--context` picks what the model sees with each question: `none` (closed
+book), `gold` (the item's own documents, the paper's RAG setting) or
+`retrieved` (top-k chunks from this project's FAISS index). Documents are
+wrapped in the template the paper's models were trained with
+(`benchmark.context_template`). Map your own dataset's fields with
+`benchmark.custom.*`, or add a suite in Python with
+`register_suite("name", loader)`.
+
+Every run writes `artifacts/benchmarks/<model>/<time>/`, containing
+`summary.json` and one `<suite>-<context>.samples.jsonl` per run with each
+reply, the parsed answer and the gold labels.
+
+**Scoring.** One parser reads every reply format the paper's models
+produce: `{"answer": ["B"]}`, `['B']`, malformed `{"answer": ["B"}`,
+`<think>` blocks and `Answer: B`. It never matches stray letters in free
+text. The original IBM evaluation script compared option ids like `P)` to
+answers like `P`, so it could never score a perturbed item as correct. The
+`ibm` suite fixes that, and also reports the old rule under `legacy` so new
+numbers can be compared with earlier ones.
 
 ## Outputs
 
