@@ -1,0 +1,134 @@
+# Runs on every pull request and on pushes to main.
+# Make the "CI passed" check required in branch protection: it only goes
+# green when every job below succeeded.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  # Extras the tests exercise. sentence-transformers/torch are left out:
+  # the tests use the offline `hash` embedder.
+  TEST_EXTRAS: dev,pdf,pdfplumber,faiss,bench
+
+jobs:
+  lint:
+    name: Lint (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install "ruff>=0.5"
+      - run: ruff check .
+
+  test:
+    name: Tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install
+        run: pip install -e ".[${TEST_EXTRAS}]"
+      - name: Test
+        run: pytest -q -rs --junitxml=junit-${{ matrix.python-version }}.xml
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-${{ matrix.python-version }}
+          path: junit-${{ matrix.python-version }}.xml
+
+  test-minimal:
+    # A user who installs only the core package: every test that needs an
+    # optional extra must skip, not crash.
+    name: Tests (core install only)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: pip install -e ".[dev]"
+      - run: pytest -q -rs
+
+  build:
+    name: Build package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install build
+      - run: python -m build
+      - name: Wheel contains prompts and default config
+        run: |
+          python - <<'PY'
+          import glob, zipfile
+          names = zipfile.ZipFile(glob.glob("dist/*.whl")[0]).namelist()
+          need = [
+              "industrial_instruction/configs/default.yaml",
+              "industrial_instruction/generate/prompts/single_doc_answer.txt",
+          ]
+          missing = [n for n in need if n not in names]
+          assert not missing, f"missing from wheel: {missing}"
+          print("wheel ok:", len(names), "files")
+          PY
+      - name: Installed CLI works
+        run: |
+          pip install dist/*.whl
+          cd "$RUNNER_TEMP" && ii --help > /dev/null && ii info > /dev/null
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  docs:
+    name: Docs build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: pip install -e ".[docs]"
+      - name: Build (strict - broken links and references fail)
+        run: mkdocs build --strict
+
+  ci-ok:
+    name: CI passed
+    if: always()
+    needs: [lint, test, test-minimal, build, docs]
+    runs-on: ubuntu-latest
+    steps:
+      - name: All jobs succeeded
+        run: |
+          if [ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped') }}" = "true" ]; then
+            echo "Some CI jobs did not succeed: ${{ toJSON(needs) }}"
+            exit 1
+          fi

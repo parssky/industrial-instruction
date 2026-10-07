@@ -10,3 +10,11 @@ __pycache__/
 *.log
 runs/
 gallery/
+
+# Packaging
+*.egg-info/
+build/
+dist/
+
+# Docs build output
+site/

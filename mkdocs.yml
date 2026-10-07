@@ -1,0 +1,137 @@
+site_name: Industrial-Instruction
+site_description: Build retrieval-grounded instruction datasets from technical PDFs, and benchmark the models you serve.
+site_url: https://parssky.github.io/industrial-instruction/
+repo_url: https://github.com/parssky/industrial-instruction
+repo_name: parssky/industrial-instruction
+edit_uri: edit/main/docs/
+copyright: Industrial-Instruction contributors
+
+theme:
+  name: material
+  icon:
+    logo: material/factory
+    repo: fontawesome/brands/github
+  favicon: assets/favicon.svg
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: amber
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: amber
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  font:
+    text: Inter
+    code: JetBrains Mono
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - navigation.indexes
+    - navigation.instant
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - content.action.edit
+    - toc.follow
+
+# With --strict, any of these fails the build (CI runs strict).
+validation:
+  omitted_files: warn
+  absolute_links: warn
+  unrecognized_links: warn
+  anchors: warn
+
+hooks:
+  - scripts/docs_config_reference.py   # renders the settings tables from config.py
+
+extra_css:
+  - stylesheets/extra.css
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: google
+            show_source: false
+            show_root_heading: true
+            show_root_full_path: false
+            show_bases: false
+            heading_level: 3
+            members_order: source
+            separate_signature: true
+            show_signature_annotations: true
+            filters: ["!^_"]
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - def_list
+  - footnotes
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.snippets:
+      base_path: ["."]
+      check_paths: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+nav:
+  - Home: index.md
+  - Getting started:
+      - getting-started/installation.md
+      - getting-started/quickstart.md
+  - User guide:
+      - guide/index.md
+      - guide/configuration.md
+      - Building a dataset:
+          - guide/extract.md
+          - guide/ocr.md
+          - guide/chunking-indexing.md
+          - guide/retrieval.md
+          - guide/seeds.md
+          - guide/generation.md
+          - guide/filtering.md
+          - guide/assemble.md
+      - guide/benchmarking.md
+  - Reference:
+      - reference/cli.md
+      - reference/configuration.md
+      - reference/outputs.md
+      - reference/python-api.md
+  - Development:
+      - development/contributing.md
+      - development/architecture.md
+  - Paper: paper.md

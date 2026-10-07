@@ -1,0 +1,19 @@
+<Documents>
+{docs}
+</Documents>
+Your task is to generate an English question q* and a corresponding response a* based on the provided <Documents>. Please
+note that the question q* can take various forms, not limited to questions with a question mark, but also including statements,
+instructions, and other formats. You need to follow the requirements below to generate the q* and a* (RAG Paradigms):
+1. Ensure that q* can be answered directly using the content of <Documents>, meaning its answer can be fully derived from
+<Documents>.
+2. a* should use the information from <Documents> to answer q* accurately, ensuring that the response is accurate, detailed,
+and comprehensive.
+3. q* must be a standalone question. Strictly avoid using phrases that reference the source material, such as "Based on the provided context," "According to the documents," "In the text," or similar meta-references.
+Additionally, to ensure diversity, richness, and high quality in the question q* you generate, we will randomly provide a
+question for you to emulate. In other words, while satisfying the requirements above, make q* similar in task requirement
+and expression to the <Simulated Instruction> below:
+<Simulated Instruction>
+{simulated_instruction}
+</Simulated Instruction>
+{options_rule}
+{output_rule}

@@ -1,0 +1,38 @@
+name: Bug report
+description: Something does not work as documented
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you ran, what happened, and what you expected instead.
+      placeholder: |
+        ii extract --set extract.ocr.mode=auto
+        ...
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error or log output
+      description: Run with `ii -v ...` for a full traceback.
+      render: text
+  - type: textarea
+    id: config
+    attributes:
+      label: Config
+      description: The relevant part of industrial_instruction.yaml. Remove API keys and private paths.
+      render: yaml
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: "`pip show industrial-instruction`, Python version, OS"
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: [extract / OCR, chunk / index / retrieval, generate, filter / assemble, benchmark, CLI / config, docs, other]
