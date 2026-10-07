@@ -9,7 +9,6 @@ in train and test.
 from __future__ import annotations
 
 import json
-
 import random
 import time
 from collections import defaultdict

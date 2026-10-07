@@ -65,7 +65,7 @@ def extract_documents(
     if extractor.ocr.enabled:
         # Resolve the backend now: a typo in extract.ocr.backend should stop
         # the stage, not fail quietly on every page of every document.
-        extractor.ocr.fn
+        _ = extractor.ocr.fn
     docs: List[Document] = []
     failures: List[dict] = []
 
@@ -123,7 +123,7 @@ def extract_documents(
 
 
 def load_documents(path: str | Path) -> Iterable[Document]:
-    """Read a documents.jsonl written by :func:`extract_documents`."""
+    """Read a documents.jsonl written by `extract_documents`."""
     from industrial_instruction.utils.io import iter_jsonl
 
     p = Path(path)

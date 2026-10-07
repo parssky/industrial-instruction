@@ -1,7 +1,7 @@
 """Single place to configure logging for CLI and library use.
 
-The public entry point is :func:`configure_logging`. Modules should call
-:func:`get_logger`, which configures the handler on first use, so importing
+The public entry point is `configure_logging`. Modules should call
+`get_logger`, which configures the handler on first use, so importing
 the library never emits output on its own.
 """
 

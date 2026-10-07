@@ -9,7 +9,7 @@ Three ways to attach a model, from most to least code:
    (relative paths resolve against ``paths.root``).
 
 A registered object may also be a *factory*: a class or function decorated
-with ``@ocr_backend(..., factory=True)`` that takes the :class:`OCRConfig`
+with ``@ocr_backend(..., factory=True)`` that takes the `OCRConfig`
 and returns the page function. Use that when the backend needs setup
 (loading weights, opening a client) once per run instead of once per page.
 """
@@ -43,7 +43,7 @@ def register_ocr(
 
 
 def ocr_backend(name: str, factory: bool = False):
-    """Decorator form of :func:`register_ocr`."""
+    """Decorator form of `register_ocr`."""
 
     def wrap(fn):
         register_ocr(name, fn, factory=factory)

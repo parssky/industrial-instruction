@@ -8,7 +8,12 @@ import pytest
 
 from industrial_instruction.config import Config
 from industrial_instruction.schemas import Chunk
-from industrial_instruction.store import RetrievalError, get_retriever, register_retriever, retriever_backend
+from industrial_instruction.store import (
+    RetrievalError,
+    get_retriever,
+    register_retriever,
+    retriever_backend,
+)
 
 faiss = pytest.importorskip("faiss", reason="faiss-cpu not installed")
 
@@ -197,9 +202,9 @@ def test_generation_engine_uses_the_configured_retriever(tmp_path):
 
 
 def test_bench_retrieved_context_with_a_user_retriever(tmp_path):
-    from industrial_instruction.benchmark import BenchItem, Endpoint, register_suite, run_benchmarks
-
     from test_benchmark import FakeOpenAI
+
+    from industrial_instruction.benchmark import BenchItem, Endpoint, register_suite, run_benchmarks
 
     register_retriever("kb", lambda q, k: ["E02 means overtemperature."][:k])
     register_suite("one", lambda c: [BenchItem(id="1", prompt="What is E02?\nA. overtemp\nB. phase", query="E02", gold=["A"])])
@@ -213,9 +218,9 @@ def test_bench_retrieved_context_with_a_user_retriever(tmp_path):
 
 
 def test_bench_fails_fast_without_an_index(tmp_path):
-    from industrial_instruction.benchmark import BenchItem, Endpoint, register_suite, run_benchmarks
-
     from test_benchmark import FakeOpenAI
+
+    from industrial_instruction.benchmark import BenchItem, Endpoint, register_suite, run_benchmarks
 
     register_suite("one", lambda c: [BenchItem(id="1", prompt="Q?", query="Q", gold=["A"])])
     fake = FakeOpenAI(lambda p: '{"answer": ["A"]}')

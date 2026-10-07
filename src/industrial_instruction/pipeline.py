@@ -1,7 +1,7 @@
 """End-to-end pipeline orchestration.
 
 ``Pipeline`` is the programmatic entry point; the CLI is a thin wrapper over
-it. Every stage returns a :class:`StageReport`, and each run appends to
+it. Every stage returns a `StageReport`, and each run appends to
 ``run_manifest.json`` together with the config fingerprint, so a dataset can
 always be traced back to the settings that produced it.
 """
@@ -40,7 +40,7 @@ def _utcnow() -> str:
 
 
 class Pipeline:
-    """Runs the dataset-construction stages against one :class:`Config`."""
+    """Runs the dataset-construction stages against one `Config`."""
 
     def __init__(self, config: Config, configure_logging: bool = True) -> None:
         self.config = config

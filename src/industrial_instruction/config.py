@@ -64,7 +64,7 @@ class OCRConfig(_Base):
     ``backend`` is either a registered name (``openai``, ``tesseract``, or
     anything added with ``register_ocr``) or an import path to your own
     function: ``my_pkg.ocr:run`` or ``ocr/my_model.py:run``. The function
-    receives an :class:`~industrial_instruction.ocr.OCRPage` and returns the
+    receives an `OCRPage` and returns the
     page as markdown.
     """
 
@@ -103,7 +103,7 @@ class OCRConfig(_Base):
 class ExtractConfig(_Base):
     """PDF -> image-free markdown (text + tables)."""
 
-    backend: str = "pymupdf"  # pymupdf | pdfplumber | docling | marker
+    backend: str = "pymupdf"  # pymupdf | pdfplumber | markdown
     extract_tables: bool = True
     table_backend: str = "auto"  # auto | pymupdf | pdfplumber | none
     drop_images: bool = True

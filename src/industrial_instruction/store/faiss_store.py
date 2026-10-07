@@ -8,7 +8,7 @@ This single class replaces the three drifted copies of
 * ``store_meta.json`` records the embedder, model, dimension and index type,
   and loading verifies them, so you cannot silently query an index built
   with a different model;
-* the id map stores full :class:`Chunk` records, so retrieval returns
+* the id map stores full `Chunk` records, so retrieval returns
   provenance (source path, headings) and not just text.
 """
 
@@ -18,8 +18,6 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence
-
-import numpy as np
 
 from industrial_instruction.config import Config, StoreConfig
 from industrial_instruction.embed.base import Embedder
@@ -52,7 +50,7 @@ class SearchHit:
 
 
 class FaissStore:
-    """Persistent FAISS index over :class:`Chunk` records."""
+    """Persistent FAISS index over `Chunk` records."""
 
     def __init__(
         self,

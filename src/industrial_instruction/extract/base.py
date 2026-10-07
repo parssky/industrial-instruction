@@ -16,9 +16,9 @@ class ExtractionError(RuntimeError):
 
 
 class Extractor(abc.ABC):
-    """Convert one PDF into an image-free :class:`Document`.
+    """Convert one PDF into an image-free `Document`.
 
-    Implement :meth:`extract` in a subclass and register it to make it
+    Implement `extract` in a subclass and register it to make it
     available via ``extract.backend`` in the config.
     """
 
@@ -33,7 +33,7 @@ class Extractor(abc.ABC):
 
     @property
     def ocr(self):
-        """The :class:`~industrial_instruction.ocr.PageOCR` for this run."""
+        """The `PageOCR` for this run."""
         if self._ocr is None:
             from industrial_instruction.ocr.runner import PageOCR
 

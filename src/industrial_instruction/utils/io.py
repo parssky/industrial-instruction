@@ -103,7 +103,7 @@ def _to_jsonable(obj: Any) -> Any:
     """Convert pydantic models / sets / Paths into JSON-serializable data."""
     if hasattr(obj, "model_dump"):
         return obj.model_dump(mode="json")
-    if hasattr(obj, "dict") and callable(getattr(obj, "dict")):
+    if hasattr(obj, "dict") and callable(obj.dict):
         try:
             return obj.dict()
         except TypeError:

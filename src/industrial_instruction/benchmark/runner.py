@@ -195,7 +195,7 @@ def run_benchmarks(
     endpoint = endpoint or Endpoint(cfg.endpoint)
     builder = ContextBuilder(config, store=store)
     if "retrieved" in contexts and store is None:
-        builder.store  # fail before any request if the retriever can't be opened
+        _ = builder.store  # fail before any request if the retriever can't be opened
 
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     slug = re.sub(r"[^A-Za-z0-9._-]+", "_", endpoint.model).strip("_")[-80:]

@@ -53,7 +53,7 @@ logger = get_logger(__name__)
 
 
 class GenerationEngine:
-    """Turns seeds + retrieved context into :class:`QASample` rows."""
+    """Turns seeds + retrieved context into `QASample` rows."""
 
     def __init__(
         self,

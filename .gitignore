@@ -15,3 +15,6 @@ gallery/
 *.egg-info/
 build/
 dist/
+
+# Docs build output
+site/

@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-from industrial_instruction.extract.base import Extractor, ExtractionError
+from industrial_instruction.extract.base import ExtractionError, Extractor
 from industrial_instruction.extract.tables import (
     is_degenerate,
     rows_to_markdown,

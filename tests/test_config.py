@@ -54,3 +54,21 @@ def test_resolved_formats_adds_chat():
     assert config.assemble.resolved_formats() == ["jsonl", "chat"]
     config = config.with_override("assemble.chat_format", "false")
     assert config.assemble.resolved_formats() == ["jsonl"]
+
+
+def test_packaged_starter_config_is_valid(tmp_path, monkeypatch):
+    """The file `ii init` writes must load through the schema unchanged."""
+    from importlib import resources
+
+    import yaml
+
+    from industrial_instruction.cli import main
+
+    text = resources.files("industrial_instruction").joinpath("configs/default.yaml").read_text()
+    config = Config.from_dict(yaml.safe_load(text))
+    assert config.extract.ocr.mode == "off"  # YAML reads bare `off` as False
+
+    monkeypatch.chdir(tmp_path)
+    assert main(["init"]) == 0
+    loaded = Config.from_yaml(tmp_path / "industrial_instruction.yaml")
+    assert loaded.paths.root == str(tmp_path.resolve())

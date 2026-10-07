@@ -1,7 +1,7 @@
 """Prompt template loading and rendering.
 
 Templates are plain text with ``{placeholder}`` tokens. Rendering uses
-explicit token substitution rather than :meth:`str.format`, because the
+explicit token substitution rather than `format`, because the
 templates contain literal JSON braces that ``format`` would choke on. That
 was the source of the doubled ``{{...}}`` escaping in the original scripts.
 """

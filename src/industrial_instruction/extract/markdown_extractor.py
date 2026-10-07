@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from industrial_instruction.extract.base import Extractor, ExtractionError
+from industrial_instruction.extract.base import ExtractionError, Extractor
 from industrial_instruction.extract.text_cleanup import normalize_whitespace
 from industrial_instruction.schemas import Document
 

@@ -2,7 +2,7 @@
 
 The retrieval unit matters more than the embedder for this pipeline: a chunk
 that splits a spec table in half produces unanswerable r3/r4 samples. So the
-default :class:`HeadingChunker` respects markdown headings and keeps tables
+default `HeadingChunker` respects markdown headings and keeps tables
 intact.
 """
 

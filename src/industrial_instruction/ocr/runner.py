@@ -41,7 +41,7 @@ class OCRResult:
 
 
 class PageOCR:
-    """Applies one OCR backend to pages, per :class:`OCRConfig`."""
+    """Applies one OCR backend to pages, per `OCRConfig`."""
 
     def __init__(
         self,

@@ -1,7 +1,7 @@
 """One retrieval interface for generation and benchmarking.
 
 ``get_retriever(config)`` returns an object with ``search(query, k)`` that
-yields :class:`SearchHit` rows, whichever ``retrieval.source`` is set:
+yields `SearchHit` rows, whichever ``retrieval.source`` is set:
 
 ``index``     this project's FAISS index (``ii index`` / ``ii index --corpus``)
 ``faiss``     a FAISS index you built yourself, in this package's format or the
@@ -57,7 +57,7 @@ def register_retriever(name: str, fn: Callable, factory: bool = False) -> None:
 
 
 def retriever_backend(name: str, factory: bool = False):
-    """Decorator form of :func:`register_retriever`."""
+    """Decorator form of `register_retriever`."""
 
     def wrap(fn):
         register_retriever(name, fn, factory=factory)
@@ -71,7 +71,7 @@ def retriever_backend(name: str, factory: bool = False):
 
 
 class FunctionRetriever:
-    """Adapts a user function's results to :class:`SearchHit` rows."""
+    """Adapts a user function's results to `SearchHit` rows."""
 
     def __init__(self, fn: Callable, text_field: str = "text", name: str = "function") -> None:
         self.fn = fn

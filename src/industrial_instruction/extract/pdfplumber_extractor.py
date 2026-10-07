@@ -6,7 +6,7 @@ import io
 from pathlib import Path
 from typing import Dict, List
 
-from industrial_instruction.extract.base import Extractor, ExtractionError
+from industrial_instruction.extract.base import ExtractionError, Extractor
 from industrial_instruction.extract.tables import is_degenerate, rows_to_markdown
 from industrial_instruction.extract.text_cleanup import clean_pages
 from industrial_instruction.ocr.base import OCRPage
