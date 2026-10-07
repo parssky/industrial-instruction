@@ -53,7 +53,9 @@ def test_configure_logging_is_idempotent():
     ii_logging.configure_logging()
     ii_logging.configure_logging("DEBUG")
     root = logging.getLogger("industrial_instruction")
-    assert len(root.handlers) == 1
+    # pytest attaches its own capture handlers, so count only ours.
+    ours = [h for h in root.handlers if getattr(h, ii_logging._HANDLER_TAG, False)]
+    assert len(ours) == 1
     assert root.level == logging.DEBUG
     ii_logging.configure_logging("INFO")
 

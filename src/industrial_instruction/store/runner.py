@@ -57,7 +57,7 @@ def build_index(
     logger.info(
         "index: %d chunks embedded with %s in %.1fs",
         added,
-        config.embed.model,
+        store.embedder.name,
         report.seconds,
     )
     return report

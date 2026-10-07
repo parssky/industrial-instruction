@@ -12,21 +12,22 @@ import os
 import sys
 from typing import Optional
 
-_CONFIGURED = False
+_HANDLER_TAG = "_industrial_instruction_handler"
 _DEFAULT_FORMAT = "%(asctime)s | %(levelname)-7s | %(name)s | %(message)s"
 
 
 def configure_logging(level: Optional[str] = None) -> None:
     """Attach a stderr handler once. Level falls back to ``II_LOG_LEVEL``."""
-    global _CONFIGURED
     resolved = (level or os.environ.get("II_LOG_LEVEL") or "INFO").upper()
     root = logging.getLogger("industrial_instruction")
-    if not _CONFIGURED:
+    # Look for our own handler rather than trusting a module flag, so a
+    # module reload (or another tool adding handlers) can't cause duplicates.
+    if not any(getattr(h, _HANDLER_TAG, False) for h in root.handlers):
         handler = logging.StreamHandler(stream=sys.stderr)
         handler.setFormatter(logging.Formatter(_DEFAULT_FORMAT, "%H:%M:%S"))
+        setattr(handler, _HANDLER_TAG, True)
         root.addHandler(handler)
         root.propagate = False
-        _CONFIGURED = True
     root.setLevel(getattr(logging, resolved, logging.INFO))
 
 
