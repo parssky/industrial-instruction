@@ -1,9 +1,16 @@
 # Industrial-Instruction
 
+[![CI](https://github.com/parssky/industrial-instruction/actions/workflows/ci.yml/badge.svg)](https://github.com/parssky/industrial-instruction/actions/workflows/ci.yml)
+[![Docs](https://github.com/parssky/industrial-instruction/actions/workflows/docs.yml/badge.svg)](https://parssky.github.io/industrial-instruction/)
+[![Python](https://img.shields.io/badge/python-3.9%20%E2%80%93%203.13-blue)](https://github.com/parssky/industrial-instruction/actions/workflows/ci.yml)
+[![arXiv](https://img.shields.io/badge/arXiv-2608.22817-b31b1b)](https://arxiv.org/abs/2608.22817)
+
 Industrial-Instruction turns a folder of technical PDFs (manuals, datasheets,
 service reports) into a **retrieval-grounded instruction dataset**, then
 **benchmarks** any model you serve against that dataset, IBM's
 FailureSensorIQ and the paper's held-out test splits.
+
+**Full documentation: https://parssky.github.io/industrial-instruction/**
 
 It is the reusable package behind the paper:
 
@@ -26,7 +33,8 @@ The dataset it writes plugs into any trainer (TRL, Unsloth, axolotl).
 | Model (Qwen-generated data) | https://huggingface.co/Parssky/industrial-instruction-qwen4b |
 | Model (Claude-generated data) | https://huggingface.co/Parssky/industrial-instruction-qwen4b-claude |
 | FAISS retrieval index | https://huggingface.co/datasets/Parssky/industrial-instruction-faiss |
-| Package reference | [PACKAGE.md](PACKAGE.md) |
+| **Documentation** | https://parssky.github.io/industrial-instruction/ |
+| Contributing | [CONTRIBUTING.md](CONTRIBUTING.md) |
 
 ---
 
@@ -554,7 +562,11 @@ Reproduce a row with `ii bench --suite paper-qwen` or
 src/industrial_instruction/   the package (this README)
 tests/                        offline tests: pytest
 examples/                     quickstart.py, custom_ocr.py, seed file example
-PACKAGE.md                    package reference
+docs/, mkdocs.yml             the documentation site (mkdocs serve)
+scripts/                      docs build helpers
+.github/                      CI, docs deployment, releases, PR and issue templates
+CONTRIBUTING.md               how to develop, test and submit changes
+PACKAGE.md                    short package reference
 create_dataset_notebooks/     original research notebooks (paper reproduction)
 create_vector_store_notebooks/
 training_notebooks/           the paper's fine-tuning scripts (not part of the package)
@@ -564,7 +576,10 @@ package_benchmark_*/          original evaluation scripts and saved results
 The notebook folders are kept as they were run for the paper. New work
 should use the package.
 
-Run the tests with `pip install -e '.[dev,pdf,faiss]' && pytest`.
+Contributions are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) covers
+setup, code standards, tests, and recipes for adding OCR models,
+retrievers, benchmark suites and more. Every pull request runs lint, tests
+on Python 3.9–3.13, a package build and a docs build.
 
 ---
 

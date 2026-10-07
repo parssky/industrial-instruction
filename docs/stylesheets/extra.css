@@ -1,0 +1,33 @@
+/* Hero on the landing page */
+.ii-hero {
+  padding: 1.6rem 0 0.4rem;
+}
+.ii-hero h1 {
+  font-weight: 800;
+  margin-bottom: 0.4rem;
+}
+.ii-hero p.lead {
+  font-size: 1.05rem;
+  opacity: 0.85;
+  max-width: 46rem;
+}
+/* Pipeline stage pills used in guide pages */
+.ii-stage {
+  display: inline-block;
+  padding: 0.05rem 0.55rem;
+  border-radius: 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: var(--md-primary-fg-color);
+  color: var(--md-primary-bg-color);
+  vertical-align: middle;
+}
+/* Slightly tighter tables */
+.md-typeset table:not([class]) th {
+  white-space: nowrap;
+}
+/* Keep setting names and types on one line in reference tables */
+.md-typeset table:not([class]) td:first-child code,
+.md-typeset table:not([class]) td:nth-child(2) code {
+  white-space: nowrap;
+}
