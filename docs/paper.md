@@ -20,8 +20,8 @@ the held-out Panasonic benchmark split:
 | Training data | Set-Match Acc. | F1 | Jaccard | MMLU |
 |---|---|---|---|---|
 | None (base model) | 28.5% | 46.6% | 41.6% | 72.13% |
-| `panasonic_qa_v1` (Qwen-generated) | 42.0% | 63.5% | 58.0% | 70.87% |
-| `panasonic_qa_claude_v1` (Claude-generated) | 56.4% | 72.7% | 68.9% | 72.08% |
+| `pana_qa_v1` (Qwen-generated) | 42.0% | 63.5% | 58.0% | 70.87% |
+| `pana_qa_claude_v1` (Claude-generated) | 56.4% | 72.7% | 68.9% | 72.08% |
 
 !!! note
     The two fine-tuned models are evaluated on different held-out splits,

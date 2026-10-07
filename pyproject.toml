@@ -73,9 +73,7 @@ extend-exclude = [
     "create_dataset_notebooks",
     "create_vector_store_notebooks",
     "training_notebooks",
-    "package_benchmark_ibm",
-    "package_benchmark_mmlu",
-    "package_benchmark_panasonic",
+    "package_benchmark_*",
     "reshard_model.py",
 ]
 
