@@ -64,14 +64,19 @@ class FixedChunker(BaseChunker):
         step = max(size - max(self.config.overlap, 0), 1)
         chunks: List[Chunk] = []
         ordinal = 0
-        for start in range(0, len(text), step):
-            window = text[start : start + size]
-            if len(window.strip()) < self.config.min_chars:
-                continue
-            chunks.append(self._make_chunk(doc, window, ordinal, []))
-            ordinal += 1
-            if start + size >= len(text):
+        start = 0
+        while start < len(text):
+            end = len(text)
+            if start + size < len(text):
+                end = _snap(text, start + size, start + max(size // 2, 1))
+            window = text[start:end]
+            if len(window.strip()) >= self.config.min_chars:
+                chunks.append(self._make_chunk(doc, window, ordinal, []))
+                ordinal += 1
+            if end >= len(text):
                 break
+            # Next window starts on a word boundary inside the overlap.
+            start = max(_snap(text, end - (size - step), start + 1, forward=True), start + 1)
         return chunks
 
 
@@ -86,21 +91,48 @@ class HeadingChunker(BaseChunker):
 
     def split(self, doc: Document) -> List[Chunk]:
         sections = self._sections(doc.markdown)
-        chunks: List[Chunk] = []
-        ordinal = 0
+        if not any(path for path, _ in sections):
+            # No headings at all (common for PDF text): fall back to windows.
+            return FixedChunker(self.config).split(doc)
+
+        # Short sections ("Use ISO VG 46 oil.") are real knowledge, so they
+        # are carried into the next piece instead of being dropped.
+        pieces: List[tuple] = []
+        carry: List[str] = []
+        carry_path: Optional[List[str]] = None
         for heading_path, body in sections:
             body = body.strip()
             if not body:
                 continue
             for piece in self._pack(body):
-                if len(piece.strip()) < self.config.min_chars:
+                text = self._with_heading(piece, heading_path)
+                if carry:
+                    text = "\n\n".join(carry + [text])
+                    heading_path = carry_path or heading_path
+                    carry, carry_path = [], None
+                if len(text.strip()) < self.config.min_chars:
+                    carry, carry_path = [text], heading_path
                     continue
-                chunks.append(self._make_chunk(doc, piece, ordinal, heading_path))
-                ordinal += 1
-        if not chunks:
-            # No headings at all (common for PDF text): fall back to windows.
-            return FixedChunker(self.config).split(doc)
-        return chunks
+                pieces.append((text, heading_path))
+        if carry:
+            if pieces:
+                text, path = pieces[-1]
+                pieces[-1] = (text + "\n\n" + carry[0], path)
+            else:
+                pieces.append((carry[0], carry_path or []))
+
+        return [
+            self._make_chunk(doc, text, ordinal, path)
+            for ordinal, (text, path) in enumerate(pieces)
+            if text.strip()
+        ]
+
+    def _with_heading(self, piece: str, heading_path: List[str]) -> str:
+        """Prefix the heading breadcrumb so retrieval and the LLM see it."""
+        crumbs = " > ".join(h for h in heading_path if h)
+        if not self.config.include_heading_in_text or not crumbs:
+            return piece
+        return f"## {crumbs}\n\n{piece}"
 
     # ------------------------------------------------------------------
 
@@ -174,6 +206,27 @@ def _split_blocks(body: str, keep_tables_whole: bool) -> List[str]:
         else:
             merged.append(block)
     return merged
+
+
+def _snap(text: str, pos: int, floor: int, forward: bool = False) -> int:
+    """Move ``pos`` to the nearest whitespace so windows don't cut words.
+
+    Searches backwards (or forwards) no further than ``floor``/a word's
+    length; if there is no whitespace nearby, ``pos`` is returned unchanged.
+    """
+    pos = max(0, min(pos, len(text)))
+    if forward:
+        if pos == 0 or text[pos - 1].isspace():
+            return pos
+        limit = min(len(text), pos + 80)
+        for i in range(pos, limit):
+            if text[i].isspace():
+                return i + 1
+        return pos
+    for i in range(pos, max(floor, pos - 80), -1):
+        if text[i - 1].isspace():
+            return i
+    return pos
 
 
 def _strip_page_markers(markdown: str) -> str:
