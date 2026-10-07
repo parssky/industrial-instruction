@@ -38,7 +38,10 @@ def options_rule(n_options: int = 5) -> str:
         f"IMPORTANT: your generated q* MUST include exactly {n_options} options labeled "
         f"A-{last}, and a* MUST contain the correct option label(s) as a JSON list. Always "
         f"generate {n_options} options, even if the source documents contain no option-like "
-        "content."
+        "content. Write new options that fit your q* and the <Documents>; do not reuse the "
+        "options of the <Simulated Instruction>. Put the options only in options*, not inside "
+        "q*, and do not copy the answer-format template of the <Simulated Instruction> (such "
+        'as {"answer": ...}) into q*.'
     )
 
 

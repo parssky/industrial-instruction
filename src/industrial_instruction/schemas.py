@@ -71,7 +71,9 @@ class Chunk(BaseModel):
 
     def as_context(self, include_heading: bool = True) -> str:
         """Render the chunk the way it is injected into a prompt."""
-        if include_heading and self.heading_path:
+        # The heading chunker already starts the text with a "## A > B"
+        # breadcrumb; adding heading_path again would duplicate it.
+        if include_heading and self.heading_path and not self.text.lstrip().startswith("#"):
             return " > ".join(self.heading_path) + "\n" + self.text
         return self.text
 
@@ -139,8 +141,13 @@ class Seed(BaseModel):
 
     id: str
     text: str
+    query: str = ""  # retrieval query; empty means use ``text``
     source: str = ""
     meta: Dict[str, Any] = Field(default_factory=dict)
+
+    @property
+    def search_text(self) -> str:
+        return self.query or self.text
 
 
 class StageReport(BaseModel):

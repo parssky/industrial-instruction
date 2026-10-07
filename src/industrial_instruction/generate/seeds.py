@@ -200,14 +200,24 @@ def _row_to_seed(
     if not text:
         return None
     raw_id = row.get(cfg.id_field) if cfg.id_field else None
+    query = row.get(cfg.query_field) if cfg.query_field else None
     meta = {
         k: v
         for k, v in row.items()
-        if k != cfg.text_field and isinstance(v, (str, int, float, bool))
+        if k != cfg.text_field and _is_plain(v)
     }
     return Seed(
         id=str(raw_id) if raw_id else stable_id(source, text),
         text=text,
+        query=str(query).strip() if isinstance(query, str) else "",
         source=source,
         meta=meta,
     )
+
+
+def _is_plain(value: Any) -> bool:
+    """Scalars, and lists of scalars such as a seed's ``options``."""
+    scalar = (str, int, float, bool)
+    if isinstance(value, scalar):
+        return True
+    return isinstance(value, list) and all(isinstance(v, scalar) for v in value)

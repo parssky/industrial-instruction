@@ -12,6 +12,7 @@ from typing import Dict, List, Sequence, Tuple
 
 from tqdm import tqdm
 
+from industrial_instruction.assemble.assemble import answer_text
 from industrial_instruction.config import Config
 from industrial_instruction.generate.client import LLMClient
 from industrial_instruction.generate.prompt_loader import (
@@ -41,7 +42,7 @@ class Judge:
             "judge",
             docs=format_documents(sample.documents),
             question=sample.question,
-            answer=sample.answer or "",
+            answer=answer_text(sample.answer),
             relation_description=self.relation_descriptions.get(
                 sample.relation, sample.relation
             ),

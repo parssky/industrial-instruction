@@ -23,6 +23,12 @@ from tqdm import tqdm
 
 from industrial_instruction.config import Config
 from industrial_instruction.generate.client import LLMClient, LLMError
+from industrial_instruction.generate.mcq import (
+    find_options,
+    normalize_answer,
+    normalize_options,
+    seed_options,
+)
 from industrial_instruction.generate.prompt_loader import (
     OUTPUT_RULE_MCQ,
     OUTPUT_RULE_QA,
@@ -73,10 +79,29 @@ class GenerationEngine:
         needed = max((r.k_docs for r in relations), default=1)
         return max(self.config.generate.retrieval_k, needed)
 
+    def wants_options(self, relation: RelationSpec, seed: Seed) -> bool:
+        """Multiple-choice output for this (relation, seed)?
+
+        ``auto`` reproduces the paper: a multiple-choice seed yields a
+        multiple-choice sample. The original prompt left that call to the
+        model ("If the <Simulated Instruction> is a multiple-choice
+        question..."); deciding it here makes it deterministic and lets the
+        filter know which format to expect.
+        """
+        mode = self.config.generate.options_mode
+        if mode == "always" or relation.requires_options:
+            return True
+        if mode == "never":
+            return False
+        return seed_options(seed.text, seed.meta) is not None
+
     def build_prompt(
-        self, relation: RelationSpec, contexts: Sequence[str], seed_text: str
+        self,
+        relation: RelationSpec,
+        contexts: Sequence[str],
+        seed_text: str,
+        wants_options: bool = False,
     ) -> str:
-        wants_options = relation.requires_options or self.config.generate.require_options
         return self.library.render(
             relation.prompt,
             docs=format_documents(contexts),
@@ -120,7 +145,11 @@ class GenerationEngine:
                 **base,
             )
 
-        prompt = self.build_prompt(relation, contexts, seed.text)
+        mcq = self.wants_options(relation, seed)
+        base["meta"]["mcq"] = mcq
+        if mcq:
+            base["meta"]["seed_options"] = seed_options(seed.text, seed.meta) or []
+        prompt = self.build_prompt(relation, contexts, seed.text, wants_options=mcq)
         try:
             payload, raw = self.client.complete_json(prompt)
         except (LLMError, ValueError) as exc:
@@ -134,6 +163,8 @@ class GenerationEngine:
             )
 
         sample = QASample.from_llm_dict(payload, id=sample_id, **base)
+        if mcq or sample.options:
+            normalize_mcq(sample)
         if not sample.question:
             sample.status = SampleStatus.INVALID
             sample.reject_reason = "missing question (q*)"
@@ -145,11 +176,29 @@ class GenerationEngine:
     ) -> List[QASample]:
         """All relations for one seed, sharing a single retrieval call."""
         store = self._ensure_store()
-        hits = store.search(seed.text, k=self._pool_size(relations))
+        hits = store.search(seed.search_text, k=self._pool_size(relations))
         return [self.generate_one(relation, seed, hits) for relation in relations]
 
 
 # ----------------------------------------------------------------------
+
+
+def normalize_mcq(sample: QASample) -> QASample:
+    """Canonical multiple-choice shape, in place.
+
+    Options end up in ``sample.options`` as ``"A. text"`` (moved out of the
+    question if the model embedded them), and the answer is a list of
+    labels remapped to A-E (``{"answer": ["Q"]}`` -> ``["B"]``). This is
+    what the original filter notebooks did by hand.
+    """
+    stem, embedded = find_options(sample.question)
+    options = sample.options or embedded
+    if embedded:
+        sample.question = stem
+    sample.options, mapping = normalize_options(options or [])
+    sample.options = sample.options or None
+    sample.answer = normalize_answer(sample.answer, mapping)
+    return sample
 
 
 def generate_samples(

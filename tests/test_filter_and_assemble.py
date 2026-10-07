@@ -67,7 +67,7 @@ def test_correct_option_count_is_accepted():
     """enforce_option_count is a bool; the count itself is generate.n_options."""
     rules = RuleFilter(FilterConfig(), n_options=5)
     options = ["A. a", "B. b", "C. c", "D. d", "E. e"]
-    assert rules.check(make_sample(options=options)).passed
+    assert rules.check(make_sample(options=options, answer=["B"])).passed
 
 
 def test_assemble_splits_are_deterministic_and_stratified(tmp_path):

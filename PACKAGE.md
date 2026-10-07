@@ -146,6 +146,25 @@ seeds: { source: self, limit: 200 }   # bootstrap from your own PDFs
 The `self` source needs no external dataset at all: it samples your indexed
 chunks and asks the model for a realistic practitioner question per chunk.
 
+**Multiple-choice seeds.** The paper's seeds (FailureSensorIQ) are
+multiple-choice prompts with their own options and answer-format template.
+With `generate.options_mode: auto` (default), a multiple-choice seed yields a
+multiple-choice sample (`q*`, `options*`, `a*` as a label list) in every
+relation r0-r4, and a plain seed yields a question/answer pair. Use `always`
+or `never` to force one format. Replies are normalized before filtering:
+
+- options are moved out of `q*` if the model embedded them there
+- options are labelled `A. ...` to `E. ...`, and P-T labels from perturbed
+  seeds are remapped together with the answer
+- `{"answer": [...]}`, `"B, D"` and `["B"]` all become `["B", "D"]`
+
+The filter then drops samples with no options, answers that are not option
+labels, options copied from the seed (`max_seed_option_overlap`), and
+questions that still contain the seed's `{"answer": ...}` template. Retrieval
+uses the seed's `question` field (`seeds.query_field`) rather than the full
+prompt, whose boilerplate is the same for every seed. In the chat format the
+assistant turn is the label list as JSON, e.g. `["B", "D"]`.
+
 **Prompts.** All templates are `.txt` files. Point `generate.prompt_dir` at a
 directory containing `useless_doc.txt`, `single_doc_support.txt`,
 `multi_doc_support.txt`, `single_doc_answer.txt`, `multi_doc_answer.txt`,

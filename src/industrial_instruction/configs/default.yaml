@@ -77,7 +77,8 @@ seeds:
   source: huggingface
   dataset: ibm-research/FailureSensorIQ
   splits: [org, pert]
-  text_field: prompt
+  text_field: prompt # shown to the generator as the <Simulated Instruction>
+  query_field: question # used for retrieval; falls back to text_field
   # path: data/my_seeds.jsonl
   shuffle: true
   seed: 42
@@ -93,7 +94,7 @@ generate:
   max_workers: 8
   max_retries: 3
   retrieval_k: 3
-  require_options: false # true = multiple-choice A-E for every relation
+  options_mode: auto # auto = multiple-choice when the seed is | always | never
   n_options: 5
   # prompt_dir: prompts   # drop your own <name>.txt files here to override
   # relations: defaults to r0-r4 from the paper; disable one with enabled: false
@@ -104,6 +105,12 @@ filter:
   require_answer: true
   forbid_meta_references: true # drops "according to the documents..."
   enforce_option_count: true
+  # multiple-choice samples: options present, answer labels valid, options not
+  # copied from the seed, no '{"answer": ...}' template left in the question
+  require_options: true
+  answer_in_options: true
+  max_seed_option_overlap: 0.6
+  forbid_format_instructions: true
   dedupe: true
   judge_enabled: false # true adds one LLM call per surviving sample
   judge_min_score: 3.0

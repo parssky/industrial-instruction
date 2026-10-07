@@ -13,6 +13,11 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set
 
 from industrial_instruction.config import FilterConfig
+from industrial_instruction.generate.mcq import (
+    has_format_instructions,
+    option_labels,
+    option_texts,
+)
 from industrial_instruction.schemas import QASample
 from industrial_instruction.utils.io import stable_id
 
@@ -54,7 +59,8 @@ class RuleFilter:
         cfg = self.config
         reasons: List[str] = []
         question = (sample.question or "").strip()
-        answer = (sample.answer or "").strip()
+        answer = _answer_text(sample.answer)
+        mcq = bool(sample.meta.get("mcq")) or bool(sample.options)
 
         if len(question) < cfg.min_question_chars:
             reasons.append(self._note("question_too_short"))
@@ -77,6 +83,12 @@ class RuleFilter:
             if len(sample.options) != self.n_options:
                 reasons.append(self._note("wrong_option_count"))
 
+        if mcq:
+            reasons.extend(self._check_mcq(sample))
+
+        if cfg.forbid_format_instructions and has_format_instructions(question):
+            reasons.append(self._note("format_instructions_in_question"))
+
         if not sample.documents:
             reasons.append(self._note("no_context"))
 
@@ -93,3 +105,33 @@ class RuleFilter:
                 self._seen.add(fingerprint)
 
         return RuleResult(passed=not reasons, reasons=reasons)
+
+    def _check_mcq(self, sample: QASample) -> List[str]:
+        cfg = self.config
+        reasons: List[str] = []
+        options = sample.options or []
+        if cfg.require_options and not options:
+            return [self._note("missing_options")]
+        labels = set(option_labels(options))
+        answers = sample.answer if isinstance(sample.answer, list) else [sample.answer]
+        if cfg.answer_in_options and options:
+            if not answers or any(str(a) not in labels for a in answers):
+                reasons.append(self._note("answer_not_in_options"))
+        seed_opts = sample.meta.get("seed_options") or []
+        if seed_opts and options and cfg.max_seed_option_overlap < 1:
+            seen = set(option_texts(seed_opts))
+            copied = sum(1 for t in option_texts(options) if t in seen)
+            if copied / len(options) > cfg.max_seed_option_overlap:
+                reasons.append(self._note("copied_seed_options"))
+        return reasons
+
+
+def _answer_text(answer) -> str:
+    """Answers are strings for QA samples and label lists for MCQ samples."""
+    if answer is None:
+        return ""
+    if isinstance(answer, (list, tuple)):
+        return " ".join(str(a) for a in answer).strip()
+    if isinstance(answer, dict):
+        return " ".join(str(v) for v in answer.values()).strip()
+    return str(answer).strip()

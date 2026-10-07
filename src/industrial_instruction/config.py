@@ -174,7 +174,11 @@ class SeedsConfig(_Base):
     source: str = "huggingface"
     dataset: str = "ibm-research/FailureSensorIQ"
     splits: List[str] = Field(default_factory=lambda: ["org", "pert"])
-    text_field: str = "prompt"
+    text_field: str = "prompt"  # shown to the generator as <Simulated Instruction>
+    # Field used as the retrieval query. FailureSensorIQ's `prompt` wraps the
+    # question in identical option/format boilerplate; `question` is just the
+    # question, which retrieves far better. Falls back to text_field.
+    query_field: Optional[str] = "question"
     id_field: Optional[str] = None
     path: Optional[str] = None  # for jsonl/json sources
     revision: Optional[str] = None
@@ -204,12 +208,27 @@ class GenerateConfig(_Base):
     timeout: float = 120.0
     retrieval_k: int = 3  # candidate pool; per-relation k_docs slices it
     limit: Optional[int] = None  # cap seeds processed (useful for smoke runs)
-    require_options: bool = False  # force multiple-choice A-E for all relations
+    # Multiple-choice output (q*, a*, options*):
+    #   auto   - when the seed is multiple-choice (as in the paper's seeds)
+    #   always - every sample;  never - plain question/answer only
+    options_mode: str = "auto"
+    require_options: bool = False  # deprecated: same as options_mode = always
     n_options: int = 5
     prompt_dir: Optional[str] = None  # user-supplied prompt templates override
     relations: List[RelationSpec] = Field(
         default_factory=lambda: [r.model_copy() for r in DEFAULT_RELATIONS]
     )
+
+    @model_validator(mode="after")
+    def _options_mode(self) -> "GenerateConfig":
+        if self.require_options:
+            self.options_mode = "always"
+        if self.options_mode not in ("auto", "always", "never"):
+            raise ValueError(
+                "generate.options_mode must be auto, always or never, "
+                f"got {self.options_mode!r}"
+            )
+        return self
 
     def enabled_relations(self) -> List[RelationSpec]:
         return [r for r in self.relations if r.enabled]
@@ -238,6 +257,13 @@ class FilterConfig(_Base):
         ]
     )
     enforce_option_count: bool = True
+    # Multiple-choice checks (samples generated as MCQ):
+    require_options: bool = True  # an MCQ sample must have options
+    answer_in_options: bool = True  # every answer label must be an option label
+    # Reject when more than this share of the options are copied verbatim
+    # from the seed's options (the model emulated the seed too literally).
+    max_seed_option_overlap: float = 0.6
+    forbid_format_instructions: bool = True  # e.g. '{"answer": ...}' left in q*
     dedupe: bool = True
     dedupe_mode: str = "normalized"  # exact | normalized
     judge_enabled: bool = False

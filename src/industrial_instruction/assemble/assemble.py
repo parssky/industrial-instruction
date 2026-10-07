@@ -8,6 +8,8 @@ in train and test.
 
 from __future__ import annotations
 
+import json
+
 import random
 import time
 from collections import defaultdict
@@ -42,6 +44,15 @@ def _split_indices(
     return result
 
 
+def answer_text(answer) -> str:
+    """Assistant turn text: MCQ label lists as JSON (``["B", "D"]``)."""
+    if answer is None:
+        return ""
+    if isinstance(answer, str):
+        return answer
+    return json.dumps(answer, ensure_ascii=False)
+
+
 def to_chat_record(sample: QASample, include_documents: bool) -> dict:
     """Chat-style record for SFT trainers (TRL, Unsloth, axolotl)."""
     question = sample.question
@@ -58,7 +69,7 @@ def to_chat_record(sample: QASample, include_documents: bool) -> dict:
         "relation": sample.relation,
         "messages": [
             {"role": "user", "content": user},
-            {"role": "assistant", "content": sample.answer or ""},
+            {"role": "assistant", "content": answer_text(sample.answer)},
         ],
     }
 
