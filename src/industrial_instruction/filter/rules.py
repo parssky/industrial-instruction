@@ -39,8 +39,10 @@ def normalize(text: str) -> str:
 class RuleFilter:
     """Stateful filter: tracks seen questions so it can drop duplicates."""
 
-    def __init__(self, config: FilterConfig) -> None:
+    def __init__(self, config: FilterConfig, n_options: int = 5) -> None:
         self.config = config
+        # Expected option count; comes from generate.n_options.
+        self.n_options = n_options
         self._seen: Set[str] = set()
         self.counts: Dict[str, int] = {}
 
@@ -72,7 +74,7 @@ class RuleFilter:
                     break
 
         if cfg.enforce_option_count and sample.options:
-            if len(sample.options) != cfg.enforce_option_count:
+            if len(sample.options) != self.n_options:
                 reasons.append(self._note("wrong_option_count"))
 
         if not sample.documents:

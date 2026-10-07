@@ -59,8 +59,15 @@ def test_dedupes_normalized_duplicates():
 
 
 def test_wrong_option_count_is_rejected():
-    rules = RuleFilter(FilterConfig(enforce_option_count=5))
+    rules = RuleFilter(FilterConfig(), n_options=5)
     assert not rules.check(make_sample(options=["A. x", "B. y"])).passed
+
+
+def test_correct_option_count_is_accepted():
+    """enforce_option_count is a bool; the count itself is generate.n_options."""
+    rules = RuleFilter(FilterConfig(), n_options=5)
+    options = ["A. a", "B. b", "C. c", "D. d", "E. e"]
+    assert rules.check(make_sample(options=options)).passed
 
 
 def test_assemble_splits_are_deterministic_and_stratified(tmp_path):

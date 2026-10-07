@@ -55,7 +55,7 @@ def filter_samples(
     for path in out.glob("*.jsonl"):
         path.unlink()
 
-    rules = RuleFilter(config.filter)
+    rules = RuleFilter(config.filter, n_options=config.generate.n_options)
     kept_counts: Dict[str, int] = {}
     total_in = 0
     rejected: List[QASample] = []
